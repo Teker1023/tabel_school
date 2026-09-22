@@ -423,6 +423,7 @@ body[data-side="mini"] .side-toggle svg{transform:rotate(180deg)}
 <div id="modal" hidden></div>
 <div id="toast" role="status"></div>
 <input type="file" id="fileXlsx" accept=".xlsx" hidden>
+<input type="file" id="fileList" accept=".xls,.xlsx" hidden>
 <input type="file" id="fileJson" accept=".json" hidden>
 
 <script>
@@ -438,7 +439,7 @@ const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10;
 
 /* окремі ключі — не перетинаються з іншими програмами школи */
 const LS = 'shkola-tabel-v1';
-const VERSION = '1.12 · 22.09.2026';
+const VERSION = '1.13 · 22.09.2026';
 
 const MONTHS = ['січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад', 'грудень'];
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
@@ -879,6 +880,160 @@ async function openJsonFile(f) {
   } catch (e) { toast('Не вдалося прочитати файл'); }
 }
 
+/* Читання старих файлів Excel 97–2003 (.xls): контейнер OLE2 + записи BIFF8.
+   Повертає масив аркушів: { name, rows: [[значення, ...], ...] }. Без бібліотек і без інтернету. */
+function readXls(buf) {
+  const u8 = new Uint8Array(buf), dv = new DataView(buf);
+  const sig = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
+  if (sig.some((b, i) => u8[i] !== b)) throw new Error('це не файл Excel 97–2003 (.xls)');
+
+  /* ---- контейнер OLE2 (CFB) ---- */
+  const secShift = dv.getUint16(30, true), secSize = 1 << secShift;
+  const miniShift = dv.getUint16(32, true), miniSize = 1 << miniShift;
+  const nFat = dv.getUint32(44, true), dirStart = dv.getUint32(48, true);
+  const miniStart = dv.getUint32(60, true), nDifat = dv.getUint32(72, true);
+  const secOff = s => (s + 1) * secSize;
+
+  const fatSecs = [];
+  for (let i = 0; i < 109 && i < nFat; i++) fatSecs.push(dv.getUint32(76 + i * 4, true));
+  let dif = dv.getUint32(68, true);
+  for (let k = 0; k < nDifat && dif < 0xFFFFFFFE; k++) {
+    const base = secOff(dif);
+    for (let i = 0; i < (secSize / 4) - 1; i++) { const v = dv.getUint32(base + i * 4, true); if (v < 0xFFFFFFFE) fatSecs.push(v); }
+    dif = dv.getUint32(base + secSize - 4, true);
+  }
+  const fat = [];
+  for (const sec of fatSecs) { const base = secOff(sec); for (let i = 0; i < secSize / 4; i++) fat.push(dv.getUint32(base + i * 4, true)); }
+
+  const chain = start => { const out = []; let s = start, guard = 0; while (s < 0xFFFFFFFE && guard++ < 1e6) { out.push(s); s = fat[s]; } return out; };
+  const readChain = (start, size, mini) => {
+    const secs = chain(start), sz = mini ? miniSize : secSize, out = new Uint8Array(mini ? secs.length * sz : secs.length * sz);
+    secs.forEach((s, i) => out.set(u8.subarray(mini ? s * sz : secOff(s), (mini ? s * sz : secOff(s)) + sz), i * sz));
+    return size ? out.subarray(0, size) : out;
+  };
+
+  /* каталог: імена потоків */
+  const dirBytes = readChain(dirStart, 0, false), entries = [];
+  for (let off = 0; off + 128 <= dirBytes.length; off += 128) {
+    const nameLen = dirBytes[off + 64] | (dirBytes[off + 65] << 8);
+    if (!nameLen) continue;
+    let name = '';
+    for (let i = 0; i < nameLen - 2; i += 2) name += String.fromCharCode(dirBytes[off + i] | (dirBytes[off + i + 1] << 8));
+    entries.push({ name, type: dirBytes[off + 66], start: new DataView(dirBytes.buffer, dirBytes.byteOffset + off).getUint32(116, true), size: new DataView(dirBytes.buffer, dirBytes.byteOffset + off).getUint32(120, true) });
+  }
+  const root = entries.find(e => e.type === 5);
+  const miniFat = root ? readChain(miniStart, 0, false) : null;
+  const miniData = root ? readChain(root.start, root.size, false) : null;
+  const readStream = e => {
+    if (e.size >= 4096 || !miniData) return readChain(e.start, e.size, false);
+    /* маленькі потоки лежать у міні-контейнері зі своєю таблицею */
+    const mdv = new DataView(miniFat.buffer, miniFat.byteOffset, miniFat.byteLength), out = new Uint8Array(e.size);
+    let s = e.start, pos = 0, guard = 0;
+    while (s < 0xFFFFFFFE && pos < e.size && guard++ < 1e6) {
+      const n = Math.min(miniSize, e.size - pos);
+      out.set(miniData.subarray(s * miniSize, s * miniSize + n), pos); pos += n;
+      s = mdv.getUint32(s * 4, true);
+    }
+    return out;
+  };
+  const wbEntry = entries.find(e => e.name === 'Workbook' || e.name === 'Book');
+  if (!wbEntry) throw new Error('у файлі немає книги Excel');
+  const wb = readStream(wbEntry), wv = new DataView(wb.buffer, wb.byteOffset, wb.byteLength);
+
+  /* ---- записи BIFF8 ---- */
+  const recs = [];
+  for (let p = 0; p + 4 <= wb.length;) {
+    const id = wv.getUint16(p, true), len = wv.getUint16(p + 2, true);
+    if (p + 4 + len > wb.length) break;
+    recs.push({ id, off: p + 4, len });
+    p += 4 + len;
+  }
+  const str = (off, len16, is16) => {
+    let out = '';
+    if (is16) { for (let i = 0; i < len16; i++) out += String.fromCharCode(wv.getUint16(off + i * 2, true)); }
+    else { for (let i = 0; i < len16; i++) out += String.fromCharCode(wb[off + i]); }
+    return out;
+  };
+  /* рядок XLUnicodeString, що може продовжуватись у наступних записах CONTINUE */
+  function readStr(ri, off, end) {
+    const cch = wv.getUint16(off, true); let p = off + 2, flags = wb[p++];
+    let high = flags & 1, rich = (flags & 8) ? wv.getUint16(p, true) : 0, ext = (flags & 4) ? wv.getUint32(p + (flags & 8 ? 2 : 0), true) : 0;
+    p += (flags & 8 ? 2 : 0) + (flags & 4 ? 4 : 0);
+    let out = '', got = 0;
+    while (got < cch) {
+      const canRead = Math.min(cch - got, high ? Math.floor((end - p) / 2) : end - p);
+      out += str(p, canRead, high); got += canRead; p += high ? canRead * 2 : canRead;
+      if (got < cch) {
+        const next = recs[++ri]; if (!next || next.id !== 0x003C) break;
+        p = next.off; end = next.off + next.len; high = wb[p++] & 1;
+      }
+    }
+    p += rich * 4 + ext;
+    return { text: out, ri, p, end };
+  }
+  /* таблиця спільних рядків */
+  const sst = [];
+  for (let i = 0; i < recs.length; i++) {
+    if (recs[i].id !== 0x00FC) continue;
+    const total = wv.getUint32(recs[i].off + 4, true);
+    let ri = i, p = recs[i].off + 8, end = recs[i].off + recs[i].len;
+    for (let k = 0; k < total; k++) {
+      if (p >= end) { const next = recs[++ri]; if (!next || next.id !== 0x003C) break; p = next.off; end = next.off + next.len; }
+      const r = readStr(ri, p, end); sst.push(r.text); ri = r.ri; p = r.p; end = r.end;
+    }
+    break;
+  }
+  /* аркуші */
+  const sheets = [];
+  for (const r of recs) {
+    if (r.id !== 0x0085) continue;
+    const pos = wv.getUint32(r.off, true), cch = wb[r.off + 6], fHigh = wb[r.off + 7] & 1;
+    sheets.push({ name: str(r.off + 8, cch, fHigh), pos, rows: [] });
+  }
+  const rkBuf = new DataView(new ArrayBuffer(8));
+  const rk = v => {
+    let num;
+    if (v & 2) num = (v | 0) >> 2;                       // ціле число
+    else { rkBuf.setUint32(0, 0, true); rkBuf.setUint32(4, v & 0xFFFFFFFC, true); num = rkBuf.getFloat64(0, true); }
+    return (v & 1) ? num / 100 : num;                    // збережено помножене на 100
+  };
+  const put = (sh, row, col, val) => { (sh.rows[row] || (sh.rows[row] = []))[col] = val; };
+  const starts = sheets.map(s => s.pos).sort((a, b) => a - b);
+  const sheetAt = off => { let cur = null; for (const s of sheets) if (s.pos <= off && (!cur || s.pos >= cur.pos)) cur = s; return cur; };
+  for (let i = 0; i < recs.length; i++) {
+    const r = recs[i], sh = sheetAt(r.off - 4);
+    if (!sh || r.off - 4 < starts[0]) continue;
+    const row = () => wv.getUint16(r.off, true), col = () => wv.getUint16(r.off + 2, true);
+    switch (r.id) {
+      case 0x00FD: put(sh, row(), col(), sst[wv.getUint32(r.off + 6, true)] ?? ''); break;             // LABELSST
+      case 0x0203: put(sh, row(), col(), wv.getFloat64(r.off + 6, true)); break;                        // NUMBER
+      case 0x027E: put(sh, row(), col(), rk(wv.getUint32(r.off + 6, true))); break;                     // RK
+      case 0x00BD: {                                                                                    // MULRK
+        const first = col(), n = Math.floor((r.len - 6) / 6);
+        for (let k = 0; k < n; k++) put(sh, row(), first + k, rk(wv.getUint32(r.off + 4 + k * 6 + 2, true)));
+        break;
+      }
+      case 0x0204: { const s2 = readStr(i, r.off + 4, r.off + r.len); put(sh, row(), col(), s2.text); break; } // LABEL
+      case 0x0006: {                                                                                    // FORMULA: текст іде окремим записом STRING
+        const isStr = wv.getUint16(r.off + 12, true) === 0xFFFF && wb[r.off + 6] === 0;
+        if (isStr) { const nx = recs[i + 1]; if (nx && nx.id === 0x0207) { const s3 = readStr(i + 1, nx.off, nx.off + nx.len); put(sh, row(), col(), s3.text); } }
+        else put(sh, row(), col(), wv.getFloat64(r.off + 6, true));
+        break;
+      }
+    }
+  }
+  /* масиви рядків і клітинок можуть бути «дірявими» — повертаємо щільні */
+  return sheets.map(sh => {
+    const n = sh.rows.length, out = [];
+    for (let i = 0; i < n; i++) {
+      const src = sh.rows[i] || [], row = [];
+      for (let c = 0; c < src.length; c++) row.push(src[c] ?? '');
+      out.push(row);
+    }
+    return { name: sh.name, rows: out };
+  });
+}
+
 /* ---------- запис .xlsx ---------- */
 const enc = new TextEncoder();
 let CRC;
@@ -1049,9 +1204,9 @@ function sheetXml(sh) {
     return typeof c.v === 'number' ? `<c r="${ref}"${st}><v>${c.v}</v></c>` : `<c r="${ref}"${st} t="inlineStr"><is><t xml:space="preserve">${xe(c.v)}</t></is></c>`;
   };
   const data = sh.rows.map((row, i) => `<row r="${i + 1}" ht="${row.h}" customHeight="1">${[...row.cells].sort((a, b) => a.c - b.c).map(c => cellXml(c, i + 1)).join('')}</row>`).join('');
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="0"/></sheetPr><dimension ref="A1:AY${sh.rows.length}"/><sheetViews><sheetView workbookViewId="0" zoomScale="30" zoomScaleNormal="30"/></sheetViews><sheetFormatPr defaultRowHeight="13.2"/><cols>` +
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="0"/></sheetPr><dimension ref="A1:AY${sh.rows.length}"/><sheetViews><sheetView workbookViewId="0" zoomScale="${sh.zoom ?? 30}" zoomScaleNormal="${sh.zoom ?? 30}"/></sheetViews><sheetFormatPr defaultRowHeight="13.2"/><cols>` +
     sh.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('') +
-    `</cols><sheetData>${data}</sheetData><mergeCells count="${sh.merges.length}">${sh.merges.map(m => `<mergeCell ref="${m}"/>`).join('')}</mergeCells><printOptions horizontalCentered="1"/><pageMargins left="0.19685" right="0.19685" top="0.15748" bottom="0.15748" header="0" footer="0"/><pageSetup paperSize="9" scale="27" orientation="portrait"/></worksheet>`;
+    `</cols><sheetData>${data}</sheetData><mergeCells count="${sh.merges.length}">${sh.merges.map(m => `<mergeCell ref="${m}"/>`).join('')}</mergeCells><printOptions horizontalCentered="1"/><pageMargins left="0.19685" right="0.19685" top="0.15748" bottom="0.15748" header="0" footer="0"/><pageSetup paperSize="9" scale="${sh.scale ?? 27}" orientation="portrait"/></worksheet>`;
 }
 function buildXlsx(sheets) {
   const M = 'http://schemas.openxmlformats.org/', T = M + 'officeDocument/2006/relationships/';
@@ -1111,12 +1266,12 @@ const ICONS = {
 };
 const ic = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
 
-const TABS = ['tabel', 'emp', 'abs', 'cal', 'settings', 'data', 'help'];
+const TABS = ['tabel', 'emp', 'abs', 'list', 'cal', 'settings', 'data', 'help'];
 let TAB = 'tabel';
 try { TAB = localStorage.getItem(LS + ':tab') || 'tabel'; } catch (e) {}
 if (!TABS.includes(TAB)) TAB = 'tabel';
 const V = {};
-const Q = { emp: '', abs: '', tabel: '' };
+const Q = { emp: '', abs: '', tabel: '', list: '' };
 /* фільтр варіантів у випадних списках працівників (щоб не гортати 80 прізвищ) */
 const SELQ = { wiz: '#wizard select[data-w$="|empId"], #wizAll', abs: '#mabsEmp', absf: 'select[data-f="abs.emp"]' };
 const selSearch = (k, ph = 'Пошук працівника') => `<div class="search sq"><input data-selq="${k}" placeholder="${esc(ph)}" aria-label="${esc(ph)}">${ic('search')}</div>`;
@@ -1149,6 +1304,7 @@ function renderNav() {
     item('tabel', 'sheet', 'Табель', monthName(CUR.y, CUR.m)) +
     item('emp', 'people', 'Працівники', `${S.employees.filter(e => !e.to).length} ${plural(S.employees.filter(e => !e.to).length, 'працівник', 'працівники', 'працівників')}`) +
     item('abs', 'absent', 'Відсутності та заміни', noSub ? `${noSub} без заміни` : '', noSub ? 'warn' : '') +
+    item('list', 'excel', 'Список працівників', S.list ? `${S.list.rows.filter(r => !r.skip).length} працівників` : 'файл не завантажено') +
     item('cal', 'calendar', 'Календар', '') +
     '<div class="nav-sep"></div>' +
     item('settings', 'gear', 'Налаштування', '') + item('data', 'data', 'Дані і копії', '') + item('help', 'help', 'Довідка', '');
@@ -1539,6 +1695,159 @@ function wizSave() {
   WIZ = null; MODAL = null; save(true); render();
   toast(!groups.size ? 'Заміни очищено' : noHours ? `Збережено. ${noHours} ${plural(noHours, 'заміна', 'заміни', 'замін')} без годин — впишіть години, щоб вони потрапили в підсумки` : 'Заміни збережено');
 }
+
+/* ---------- Список працівників (окремий файл школи: стаж, предмети, навантаження) ---------- */
+const LIST_HEADS = { name: /прізвищ/i, subj: /предмет/i, stage: /стаж/i };
+/* «Капітан Ганна Іванівна» і «Капітан Г.І.» — та сама людина: прізвище + перші літери імені та по батькові */
+function nameKey(full) {
+  const w = String(full || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+  if (!w.length) return '';
+  /* «Ганна Іванівна» і «Г.І.» дають однакові ініціали ГІ */
+  const ini = w.slice(1).flatMap(part => part.split(/[.\s]+/).filter(Boolean).map(x => x[0])).join('');
+  return normName(w[0]) + '|' + normName(ini.slice(0, 2));
+}
+function matchEmp(full) {
+  const k = nameKey(full);
+  if (!k) return null;
+  const all = S.employees.filter(e => nameKey(e.name) === k);
+  if (all.length === 1) return all[0];
+  /* якщо кілька однофамільців з тими самими ініціалами — беремо того, хто ще працює */
+  return all.find(e => !e.to) || all[0] || null;
+}
+/* «Англійська мова - 11 год», по рядку на кожну посаду з графіка */
+function loadText(emp) {
+  if (!emp) return '';
+  return emp.positions.map(pos => {
+    const l = lastLoad(pos), h = patSum(l?.pattern) || l?.rate || 0;
+    return `${(pos.title || '').trim()} - ${fmt(h)} год`;
+  }).filter(t => t !== ' - 0 год').join('\n');
+}
+/* Адміністративні й технічні посади — це не педагогічне навантаження */
+const ADMIN_TITLE = /директор|заступ|завгосп|бібліотек|секретар|лаборант|прибираль|сторож|кухар|двірник|опалюв|робітник|машиніст/i;
+const posHours = p => { const l = lastLoad(p); return patSum(l?.pattern) || l?.rate || 0; };
+/* години уроків за табелем: усі посади, крім адміністративних */
+function teachHours(emp) {
+  if (!emp) return 0;
+  const pos = emp.positions.filter(p => !ADMIN_TITLE.test(p.title || ''));
+  return (pos.length ? pos : emp.positions).reduce((a, p) => a + posHours(p), 0);
+}
+function adminHours(emp) {
+  return !emp ? 0 : emp.positions.filter(p => ADMIN_TITLE.test(p.title || '')).reduce((a, p) => a + posHours(p), 0);
+}
+/* Що записати в колонку предметів:
+   є назва предмета й рівно одне число — міняємо тільки число (назви з файлу не чіпаємо);
+   клітинка порожня — складаємо рядок з посад табеля;
+   чисел кілька (два предмети) — не переписуємо нічого, показуємо години табеля для ручної правки. */
+function listNewText(row, emp) {
+  if (!emp) return null;
+  const cur = String(listCell(row, 'subj') ?? '').trim(), h = teachHours(emp);
+  if (!h) return null;
+  if (!cur) return loadText(emp);
+  /* рахуємо лише числа перед «год», щоб «3–Б клас» не здавалося другим предметом */
+  const re = /(\d+[.,]?\d*)(\s*год)/gi, hits = cur.match(re) || [];
+  if (hits.length === 1) return cur.replace(re, (m, n, tail) => fmt(h) + tail);
+  return null;
+}
+const listCell = (row, key) => S.list && S.list.cols[key] != null ? (row.cells[S.list.cols[key]] ?? '') : '';
+function setListCell(row, key, v) { if (S.list && S.list.cols[key] != null) row.cells[S.list.cols[key]] = v; }
+/* розбір завантаженого файлу списку */
+function parseListSheet(rows, fileName, sheetName) {
+  let head = -1;
+  for (let i = 0; i < Math.min(rows.length, 30); i++) if ((rows[i] || []).some(v => LIST_HEADS.name.test(String(v)))) { head = i; break; }
+  if (head < 0) throw new Error('не знайдено рядок із заголовком «Прізвище…»');
+  const cols = {};
+  (rows[head] || []).forEach((v, c) => { for (const k in LIST_HEADS) if (cols[k] == null && LIST_HEADS[k].test(String(v))) cols[k] = c; });
+  if (cols.name == null) throw new Error('не знайдено колонку з прізвищами');
+  const width = rows.reduce((m, r) => Math.max(m, (r || []).length), 0) || 1;
+  const data = [];
+  for (let i = head + 1; i < rows.length; i++) {
+    const cells = Array.from({ length: width }, (_, c) => (rows[i] || [])[c] ?? '');
+    const nm = String(cells[cols.name] || '').replace(/\s+/g, ' ').trim();
+    /* службові рядки (нумерація колонок, порожні) не показуємо, але зберігаємо — щоб файл не «поїхав» */
+    const skip = !nm || nm.length < 4 || /^\d+([.,]\d+)?$/.test(nm);
+    data.push({ i, cells, skip });
+  }
+  return {
+    file: fileName, sheet: sheetName, head, cols, width,
+    headRow: Array.from({ length: width }, (_, c) => (rows[head] || [])[c] ?? ''),
+    preRows: rows.slice(0, head + 1).map(r => Array.from({ length: width }, (_, c) => (r || [])[c] ?? '')),
+    rows: data, stageYear: null, at: Date.now()
+  };
+}
+async function openListFile(f) {
+  const buf = await f.arrayBuffer();
+  let sheets;
+  if (/\.xlsx?$/i.test(f.name) && new Uint8Array(buf)[0] === 0x50) {          // .xlsx (zip)
+    const z = unzip(buf), shared = [], ss = await z.text('xl/sharedStrings.xml');
+    if (ss) for (const si of tags(xmlDoc(ss), 'si')) shared.push(tags(si, 't').map(t => t.textContent).join(''));
+    sheets = [];
+    for (const n of z.names.filter(n => /^xl\/worksheets\/[^/]+\.xml$/i.test(n)).sort())
+      sheets.push({ name: n, rows: sheetRows(await z.text(n), shared).map(r => Array.from(r, v => v ?? '')) });
+  } else sheets = readXls(buf);
+  const sh = sheets.map(x => ({ x, n: x.rows.filter(r => (r || []).some(v => LIST_HEADS.name.test(String(v)))).length }))
+    .sort((a, b) => b.n - a.n || b.x.rows.length - a.x.rows.length)[0]?.x;
+  if (!sh) throw new Error('у файлі немає аркушів');
+  S.list = parseListSheet(sh.rows, f.name, sh.name);
+  save(true); go('list');
+  toast(`Список завантажено: ${S.list.rows.length} ${plural(S.list.rows.length, 'рядок', 'рядки', 'рядків')}`);
+}
+/* експорт списку назад у Excel (.xlsx) з тими самими колонками */
+function exportList() {
+  if (!S.list) return;
+  const L = S.list;
+  const mk = (arr, h) => ({ h, cells: arr.map((v, c) => ({ c, v: v === '' || v == null ? '' : v })) });
+  const rows = [...L.preRows.map(r => mk(r, 30)), ...L.rows.map(r => mk(r.cells, 42))];
+  const widths = Array.from({ length: L.width }, (_, c) => c === L.cols.name ? 30 : c === L.cols.subj ? 32 : c === L.cols.stage ? 8 : 16);
+  download(buildXlsx([{ name: (L.sheet || 'Список').replace(/[\/?*\[\]:]/g, '-').slice(0, 31), rows, widths, merges: [], zoom: 100, scale: 100 }]),
+    L.file.replace(/\.xlsx?$/i, '') + ` (оновлено ${today()}).xlsx`);
+  toast('Файл збережено — відкрийте його в Excel');
+}
+
+V.list = () => {
+  if (!S.list) return pageHead('Список працівників', 'Окремий файл школи: стаж, предмети викладання й педагогічне навантаження. Програма підставляє в нього години з табеля.') + `
+    <section class="card"><div class="drop" data-act="pickList" role="button" tabindex="0">${ic('upload')}
+      <div><b>Перетягніть сюди файл списку</b><br><span>або натисніть, щоб вибрати. Підходять «список1 2025.xls» (Excel 97–2003) і .xlsx.</span></div></div>
+      ${how('Що робить ця сторінка',
+        'Файл залишається у вас: він не надсилається в інтернет і не потрапляє в репозиторій програми.',
+        '<b>Предмет(и) викладання, педагогічне навантаження</b> — програма складає з посад і графіка працівника: <code>Англійська мова - 11 год</code>. Якщо в людини дві посади, буде два рядки.',
+        '<b>Стаж</b> — кнопка додає всім по одному року, коли починається новий навчальний рік.',
+        'Змінені дані зберігаються в програмі та в копіях; назад у файл вони потрапляють кнопкою «Зберегти у Excel».')}
+    </section>`;
+  const L = S.list, people = L.rows.filter(r => !r.skip);
+  const rows = people.filter(r => hit('list', String(listCell(r, 'name')), String(listCell(r, 'subj'))));
+  const matched = people.filter(r => matchEmp(listCell(r, 'name'))).length;
+  const yearNow = CUR.m >= (+(S.schoolYear?.from || '09-01').slice(0, 2)) ? CUR.y : CUR.y - 1;
+  return pageHead('Список працівників', `Файл «${esc(L.file)}», аркуш «${esc(L.sheet)}» · працівників: ${people.length} · знайдено в табелі: ${matched}`,
+    `<button class="btn primary" data-act="listFill">${ic('check')} Підставити навантаження з табеля</button>
+     <button class="btn" data-act="listStage" title="Додати всім по одному року стажу — раз на навчальний рік">${ic('plus')} Рік стажу</button>
+     <button class="btn" data-act="exportList">${ic('excel')} Зберегти у Excel</button>
+     <button class="btn ghost" data-act="pickList" title="Завантажити інший файл списку">${ic('upload')} Інший файл</button>`) + `
+  <div class="toolbar">${searchBox('list', 'Пошук за прізвищем або предметом')}<span class="sp"></span>
+    <span class="hint">${L.stageYear ? `Стаж додано за ${L.stageYear} н. р.` : 'Стаж ще не додавали'} · оновлено ${new Date(L.at).toLocaleDateString('uk-UA')}</span></div>
+  <section class="card" style="padding:0;overflow:hidden"><div class="tblwrap"><table class="tbl">
+    <thead><tr><th style="width:50px">№</th><th style="width:230px">Прізвище, ім’я, по батькові</th><th style="width:210px">Кого знайдено в табелі</th><th>Предмет(и) викладання, педагогічне навантаження</th><th style="width:90px">Стаж</th></tr></thead>
+    <tbody>${rows.map((r, n) => {
+      const emp = matchEmp(listCell(r, 'name')), want = listNewText(r, emp), cur = String(listCell(r, 'subj') || '').trim();
+      const th = teachHours(emp), ah = adminHours(emp);
+      const same = want != null && normName(cur.replace(/\s+/g, ' ')) === normName(want.replace(/\s+/g, ' '));
+      return `<tr><td class="num muted">${n + 1}</td>
+        <td><span class="cellname">${esc(String(listCell(r, 'name')).replace(/\s+/g, ' ').trim())}</span></td>
+        <td>${emp ? `<span class="pill ok">${esc(emp.name)}</span>${emp.to ? '<span class="cellsub">звільнений(а)</span>' : ''}` : '<span class="pill warn">немає в табелі</span>'}</td>
+        <td><div class="row" style="gap:6px;align-items:flex-start">
+          <textarea data-l="${r.i}|subj" rows="2" style="flex:1;min-height:52px">${esc(String(listCell(r, 'subj') ?? ''))}</textarea>
+          ${want && !same ? `<button class="btn small" data-act="listFillOne" data-i="${r.i}" title="Записати: ${esc(want.replace(/\n/g, '; '))}">${ic('down')} з табеля</button>` : ''}
+        </div>${!emp ? '' : same ? '<span class="cellsub ok">години збігаються з табелем</span>'
+          : want ? `<span class="cellsub warn">стане: ${esc(want.replace(/\n/g, '; '))}</span>`
+          : `<span class="cellsub warn">у табелі ${fmt(th)} год уроків${ah ? ` (ще ${fmt(ah)} год за адмінпосадою)` : ''} — тут кілька предметів, впишіть години вручну</span>`}</td>
+        <td><input data-l="${r.i}|stage" value="${esc(String(listCell(r, 'stage') ?? ''))}" style="text-align:center"></td></tr>`;
+    }).join('')}</tbody></table></div></section>
+  ${how('Як це працює',
+    `<b>«Підставити навантаження з табеля»</b> міняє тільки число годин, назви предметів з файлу лишаються: <code>Англійська мова - 11 год</code>. Якщо в клітинці кілька предметів, програма нічого не переписує, а показує, скільки годин у табелі.`,
+    '<b>Адміністративні години не рахуються:</b> для директора чи заступника береться лише навантаження уроками.',
+    '<b>«Рік стажу»</b> додає всім, у кого в колонці число, один рік. Двічі за один навчальний рік не додасть.',
+    '<b>«Зберегти у Excel»</b> віддає файл із тими самими колонками у форматі .xlsx — його можна відкрити в Excel і за потреби зберегти як .xls.',
+    'Файл зберігається лише у вас: у цьому браузері та у ваших копіях.')}`;
+};
 
 /* ---------- Календар ---------- */
 V.cal = () => {
@@ -1943,6 +2252,39 @@ const ACT = {
   absWizard: el => { const a = byId(S.absences, el.dataset.id); if (a) startWizard(a); },
   wizAdd: el => { const r = WIZ.rows[+el.dataset.i], used = r.items.reduce((x, it) => x + (+it.h || 0), 0); r.items.push({ empId: '', name: '', h: Math.max(0, r.planned - used) }); keepScroll(render); },
   wizOk: () => { keepScroll(render); toast('Години застосовано'); },
+  pickList: () => $('#fileList').click(),
+  listFillOne: el => {
+    const r = S.list.rows.find(x => x.i === +el.dataset.i), emp = r && matchEmp(listCell(r, 'name'));
+    if (!emp) return;
+    setListCell(r, 'subj', listNewText(r, emp)); S.list.at = Date.now(); save(true); keepScroll(render);
+  },
+  listFill: () => {
+    let n = 0;
+    for (const r of S.list.rows) {
+      if (r.skip) continue;
+      const emp = matchEmp(listCell(r, 'name')); if (!emp) continue;
+      const t = listNewText(r, emp); if (!t || String(listCell(r, 'subj')).trim() === t) continue;
+      setListCell(r, 'subj', t); n++;
+    }
+    S.list.at = Date.now(); save(true); render();
+    const manual = S.list.rows.filter(r => { if (r.skip) return false; const e = matchEmp(listCell(r, 'name')); return e && teachHours(e) && listNewText(r, e) === null; }).length;
+    toast(n ? `Оновлено рядків: ${n}${manual ? `, ще ${manual} з кількома предметами — впишіть вручну` : ''}` : 'Нових змін нема');
+  },
+  listStage: () => {
+    const y = CUR.m >= +(S.schoolYear?.from || '09-01').slice(0, 2) ? CUR.y : CUR.y - 1;
+    if (S.list.stageYear === y) return toast(`Стаж за ${y}/${y + 1} н. р. уже додано`);
+    let n = 0;
+    for (const r of S.list.rows) {
+      if (r.skip) continue;
+      const v = String(listCell(r, 'stage') ?? '').trim().replace(',', '.');
+      if (!/^\d+([.]\d+)?$/.test(v)) continue;
+      setListCell(r, 'stage', Math.round((+v + 1) * 100) / 100); n++;
+    }
+    S.list.stageYear = y; S.list.at = Date.now(); save(true); render();
+    toast(`Додано рік стажу: ${n} ${plural(n, 'працівник', 'працівники', 'працівників')}`);
+  },
+  exportList,
+  listClear: () => { if (!confirm('Прибрати завантажений список? Сам файл на диску лишиться.')) return; S.list = null; save(true); render(); },
   wizDel: el => { WIZ.rows[+el.dataset.i].items.splice(+el.dataset.j, 1); keepScroll(render); },
   wizQuick: el => { const r = WIZ.rows[+el.dataset.i], used = r.items.reduce((x, it) => x + (+it.h || 0), 0); r.items = r.items.filter(it => it.empId || it.name); r.items.push({ empId: el.dataset.id, name: '', h: Math.max(0, r.planned - used) }); keepScroll(render); },
   wizAssignAll: () => {
@@ -2062,6 +2404,11 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('change', e => {
   const el = e.target;
+  if (el.dataset.l) {
+    const [i, key] = el.dataset.l.split('|'), r = S.list?.rows.find(x => x.i === +i);
+    if (r) { setListCell(r, key, key === 'stage' && /^\d+([.,]\d+)?$/.test(el.value.trim()) ? +el.value.replace(',', '.') : el.value); S.list.at = Date.now(); save(true); }
+    return;
+  }
   if (el.dataset.w) {
     const [i, j, f] = el.dataset.w.split('|'), it = WIZ?.rows[+i]?.items[+j]; if (!it) return;
     if (f === 'empId') { it.empId = el.value; if (el.value !== '*') it.name = ''; }
@@ -2103,13 +2450,20 @@ document.addEventListener('change', e => {
   if (redraw) keepScroll(render); else renderNav();
 });
 $('#fileXlsx').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) openXlsxFile(f); });
+$('#fileList').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (f) try { await openListFile(f); } catch (err) { toast('Не вдалося прочитати файл: ' + (err.message || err)); }
+});
 $('#fileJson').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) openJsonFile(f); });
 addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('dragging'); });
 addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('dragging'); });
 addEventListener('drop', e => {
   e.preventDefault(); document.body.classList.remove('dragging');
   const f = e.dataTransfer?.files?.[0]; if (!f) return;
-  if (/\.json$/i.test(f.name)) openJsonFile(f); else if (/\.xlsx$/i.test(f.name)) openXlsxFile(f); else toast('Потрібен файл .xlsx або .json');
+  if (/\.json$/i.test(f.name)) openJsonFile(f);
+  else if (/\.xls$/i.test(f.name) || (TAB === 'list' && /\.xlsx$/i.test(f.name))) openListFile(f).catch(err => toast('Не вдалося прочитати файл: ' + (err.message || err)));
+  else if (/\.xlsx$/i.test(f.name)) openXlsxFile(f);
+  else toast('Потрібен файл .xlsx, .xls або .json');
 });
 /* Ctrl + коліщатко над табелем — масштаб табеля, а не всієї сторінки */
 addEventListener('wheel', e => { if (!e.ctrlKey || !e.target.closest?.('.sheetwrap')) return; e.preventDefault(); setZoom(Math.max(0.2, Math.min(2.5, Math.round((zoomValue() + (e.deltaY < 0 ? 0.1 : -0.1)) * 10) / 10))); }, { passive: false });
