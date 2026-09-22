@@ -185,6 +185,9 @@ table.tbl{border-collapse:separate;border-spacing:0;width:100%;background:var(--
 .search input{border:0;background:none;padding:6px 0;min-height:34px}
 .search input:focus{outline:none;box-shadow:none}
 .search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.search.sq{min-width:0;flex:0 1 230px;padding:0 8px 0 10px;margin-bottom:4px}
+.search.sq input{font-size:13.5px;min-height:30px}
+.search.sq svg.i{width:15px;height:15px;color:var(--muted);flex:none}
 .q{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--sunk);color:var(--muted);font:700 11px/1 var(--body);cursor:help;vertical-align:1px;margin-left:5px}
 .how{background:var(--raise);border-radius:10px;padding:12px 14px;font-size:13.5px;color:var(--ink2);display:flex;flex-direction:column;gap:6px}
 .how b{color:var(--ink)}
@@ -1100,6 +1103,7 @@ const ICONS = {
   restore: '<path d="M4 12a8 8 0 108-8 8.2 8.2 0 00-6 2.7M4 4v4h4"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  search: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.3-4.3"/>',
   up: '<path d="M12 19V5M5 12l7-7 7 7"/>',
   down: '<path d="M12 5v14M5 12l7 7 7-7"/>',
   swap: '<path d="M4 7h12M12 3l4 4-4 4M20 17H8M12 13l-4 4 4 4"/>',
@@ -1113,6 +1117,19 @@ try { TAB = localStorage.getItem(LS + ':tab') || 'tabel'; } catch (e) {}
 if (!TABS.includes(TAB)) TAB = 'tabel';
 const V = {};
 const Q = { emp: '', abs: '', tabel: '' };
+/* фільтр варіантів у випадних списках працівників (щоб не гортати 80 прізвищ) */
+const SELQ = { wiz: '#wizard select[data-w$="|empId"], #wizAll', abs: '#mabsEmp', absf: 'select[data-f="abs.emp"]' };
+const selSearch = (k, ph = 'Пошук працівника') => `<div class="search sq"><input data-selq="${k}" placeholder="${esc(ph)}" aria-label="${esc(ph)}">${ic('search')}</div>`;
+function filterSelects(k, q) {
+  const n = normName(q || '');
+  for (const sel of $$(SELQ[k] || k)) {
+    for (const o of sel.options) {
+      if (!o.value || o.value === '*') continue;
+      o.hidden = !!n && !normName(o.textContent).includes(n);
+    }
+    for (const g of sel.querySelectorAll('optgroup')) g.hidden = [...g.children].every(o => o.hidden);
+  }
+}
 const searchBox = (k, ph) => `<div class="search"><input data-q="${k}" value="${esc(Q[k])}" placeholder="${esc(ph)}" aria-label="Пошук">${Q[k] ? `<button class="x plain" data-act="clearQ" data-k="${k}" title="Очистити">${ic('x')}</button>` : ''}</div>`;
 const hit = (k, ...p) => !Q[k].trim() || p.filter(Boolean).join(' ').toLowerCase().includes(Q[k].trim().toLowerCase());
 let CALY = CUR.y, ABS_EDIT = null, WIZ = null, POP = null, IMPORT = null, MODAL = null, ABS_FILTER = { ym: '', emp: '' };
@@ -1413,7 +1430,7 @@ V.abs = () => {
   }).join('');
   const subsM = monthRows(+ym.slice(0, 4), +ym.slice(5)).subRows;
   return pageHead('Відсутності та заміни', 'Лікарняні, відпустки, декрети — з датами. Заміни вписуються по днях і показуються під табелем у блоці «Заміна».') + form +
-  `<section class="card"><header><h2>Відсутності</h2><span class="sp"></span>${searchBox('abs', 'Пошук')}<input type="month" data-f="abs.ym" value="${ym}" style="width:auto"><select data-f="abs.emp" style="width:auto">${empOptions(ABS_FILTER.emp, '— усі працівники —')}</select></header>
+  `<section class="card"><header><h2>Відсутності</h2><span class="sp"></span>${searchBox('abs', 'Пошук')}<input type="month" data-f="abs.ym" value="${ym}" style="width:auto">${selSearch('absf', 'Пошук у списку')}<select data-f="abs.emp" style="width:auto">${empOptions(ABS_FILTER.emp, '— усі працівники —')}</select></header>
     ${rows ? `<div class="tblwrap"><table class="tbl"><thead><tr><th>Працівник</th><th>Код</th><th class="num">Період</th><th class="num" title="Робочі дні з уроками в навчальному році">Днів для заміни</th><th>Заміни</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">У цьому місяці відсутностей немає.</p>'}
   </section>
   <section class="card"><header><h2>Рядки блоку «Заміна» за ${MONTHS[+ym.slice(5) - 1]} ${ym.slice(0, 4)}</h2><span class="sp"></span><button class="btn small" data-act="addSubRow">${ic('plus')} Рядок заміни</button></header>
@@ -1424,7 +1441,12 @@ V.abs = () => {
 function startWizard(a) {
   const dates = subDates(a), old = subsOfAbs(a);
   if (!dates.length) { WIZ = null; return toast('У цій відсутності немає робочих днів з уроками'); }
-  WIZ = { absId: a.id, rows: dates.map(d => ({ date: d.date, planned: d.planned, items: old.filter(s => d.date in s.days).map(s => ({ empId: s.empId || '', name: s.subName || '', h: s.days[d.date] })) })) };
+  /* показуємо всіх, хто вже записаний на цю відсутність: з годинами — з годинами,
+     без годин (так буває після імпорту табеля з Excel) — з порожнім полем, щоб завуч їх не загубив */
+  WIZ = { absId: a.id, rows: dates.map(d => ({
+    date: d.date, planned: d.planned,
+    items: old.filter(s => d.date in s.days || !subHours(s)).map(s => ({ empId: s.empId || '', name: s.subName || '', h: s.days[d.date] ?? '' }))
+  })) };
   ABS_EDIT = null; MODAL = { type: 'wiz' }; render();
 }
 /* завантаженість кандидата в день: свої години + вже записані заміни (крім цієї відсутності) */
@@ -1450,7 +1472,7 @@ function wizardHtml() {
   if (!a || !e) { WIZ = null; MODAL = null; return ''; }
   const total = WIZ.rows.reduce((s, r) => s + r.items.reduce((x, it) => x + (+it.h || 0), 0), 0), need = WIZ.rows.reduce((s, r) => s + r.planned, 0);
   return `<div class="mbox" id="wizard"><header><h2>Заміни: ${esc(e.name)}, ${codePill(a.code)} ${fmtD(a.from)} – ${a.to ? fmtD(a.to) : '…'}</h2><span class="sp"></span><button class="x plain" data-act="wizCancel" title="Закрити">${ic('x')}</button></header>
-    <div class="wizbar"><label class="field" style="flex:1 1 320px">Один замінник на всі дні<select id="wizAll">${candOptions(e, WIZ.rows[0].date, WIZ.all || '')}</select></label>
+    <div class="wizbar" style="flex-wrap:wrap">${selSearch('wiz', 'Пошук працівника у списках нижче')}<label class="field" style="flex:1 1 320px">Один замінник на всі дні<select id="wizAll">${candOptions(e, WIZ.rows[0].date, WIZ.all || '')}</select></label>
       <button class="btn primary" data-act="wizAssignAll">Поставити на всі вільні години</button><button class="btn" data-act="wizFill" title="Скопіювати склад замін першого дня на решту днів">Як у перший день</button><button class="btn ghost" data-act="wizClear">Очистити все</button></div>
     <p class="hint">Або по днях: натисніть прізвище під датою — додасться із залишком годин цього дня (у дужках — його власні години того дня). Разом за день не більше, ніж уроків у відсутнього.</p>
     <div class="tblwrap"><table class="tbl"><thead><tr><th style="width:150px">Дата</th><th class="num" style="width:120px">Уроків</th><th>Хто заміняє</th></tr></thead><tbody>
@@ -1459,7 +1481,7 @@ function wizardHtml() {
       return `<tr class="${over ? 'warnrow' : ''}"><td class="cellname">${fmtD(r.date)}<span class="cellsub">${WD_FULL[dow(r.date)]}</span></td>
       <td class="num"><b>${fmt(r.planned)}</b>${over ? `<span class="cellsub bad">записано ${fmt(used)}</span>` : left > 0 ? `<span class="cellsub warn">лишилось ${fmt(left)}</span>` : '<span class="cellsub ok">закрито</span>'}</td><td>
       ${r.items.map((it, j) => { const other = it.empId === '*' || (it.empId === '' && it.name), l = !other && it.empId ? candLoad(it.empId, r.date, WIZ.absId) : null, tot = l ? l.own + l.subs + (+it.h || 0) : 0;
-        return `<div class="row" style="align-items:center;margin-bottom:2px"><select data-w="${i}|${j}|empId" style="width:330px">${candOptions(e, r.date, other ? '*' : it.empId)}</select>${other ? `<input data-w="${i}|${j}|name" value="${esc(it.name)}" placeholder="Прізвище І.П." style="width:180px">` : ''}<input type="number" step="0.5" min="0" data-w="${i}|${j}|h" value="${it.h ?? ''}" style="width:80px" title="годин"><span class="hint">год</span><button class="x" data-act="wizDel" data-i="${i}" data-j="${j}" title="Прибрати">${ic('x')}</button></div>` +
+        return `<div class="row" style="align-items:center;margin-bottom:2px"><select data-w="${i}|${j}|empId" style="width:330px">${candOptions(e, r.date, other ? '*' : it.empId)}</select>${other ? `<input data-w="${i}|${j}|name" value="${esc(it.name)}" placeholder="Прізвище І.П." style="width:180px">` : ''}<input type="number" step="0.5" min="0" data-w="${i}|${j}|h" value="${it.h ?? ''}" style="width:80px" title="Скільки годин заміняє цього дня. Натисніть ОК або Enter"><span class="hint">год</span><button class="btn small" data-act="wizOk" title="Застосувати години (або натисніть Enter)">ОК</button><button class="x" data-act="wizDel" data-i="${i}" data-j="${j}" title="Прибрати">${ic('x')}</button></div>` +
           (l ? `<span class="loadinfo ${l.abs ? 'bad' : tot > 7 ? 'warn' : ''}">${l.abs ? `сам відсутній цього дня (${l.abs.code}) — оберіть іншого` : `цього дня в нього: свої ${fmt(l.own)} + інші заміни ${fmt(l.subs)} + ця ${fmt(+it.h || 0)} = ${fmt(tot)} год`}</span>` : ''); }).join('')}
       ${chips.length ? `<div class="chips">${chips.map(c => `<button class="chipbtn" data-act="wizQuick" data-i="${i}" data-id="${c.e.id}" title="Додати із залишком ${fmt(left)} год">${esc(c.e.name)} <b>(${fmt(c.l.own + c.l.subs)})</b></button>`).join('')}</div>` : ''}
       ${left > 0 || !r.items.length ? `<button class="btn small ghost" data-act="wizAdd" data-i="${i}">${ic('plus')} інший працівник…</button>` : ''}</td></tr>`; }).join('')}
@@ -1470,7 +1492,7 @@ function wizardHtml() {
 function absModalHtml() {
   const m = MODAL, ed = !!m.editId;
   return `<div class="mbox center" style="width:min(720px,100%)"><header><h2>${ed ? 'Змінити відсутність' : 'Відсутність: з якого по яке число'}</h2><span class="sp"></span><button class="x plain" data-act="modalClose" title="Закрити">${ic('x')}</button></header>
-    <div class="row"><label class="field">Працівник<select id="mabsEmp">${empOptions(m.empId)}</select></label><label class="field">Код<select id="mabsCode">${codeOptions(m.code)}</select></label></div>
+    <div class="row"><label class="field">Працівник${selSearch('abs')}<select id="mabsEmp">${empOptions(m.empId)}</select></label><label class="field">Код<select id="mabsCode">${codeOptions(m.code)}</select></label></div>
     <div class="row"><label class="field s" style="flex:0 0 170px">З<input type="date" id="mabsFrom" value="${m.from}"></label><label class="field s" style="flex:0 0 170px">По (включно)<input type="date" id="mabsTo" value="${m.to || ''}"></label><label class="chk" style="padding-bottom:8px"><input type="checkbox" id="mabsOpen"${m.open ? ' checked' : ''}> безстроково</label><label class="field">Примітка<input id="mabsNote" value="${esc(m.note || '')}"></label></div>
     <p class="hint">Код стане у всі дні періоду. Для коротких відсутностей (ТН, НА, В…) далі відкриється вікно замін по днях. Для ВП, ДД, М заміни не потрібні — на це місце береться інша людина (додайте її у «Працівниках»).</p>
     <div class="row"><button class="btn primary" data-act="saveAbs" data-p="mabs">${ic('check')} Зберегти</button><button class="btn ghost" data-act="modalClose">Скасувати</button></div></div>`;
@@ -1497,12 +1519,14 @@ function wizSave() {
   const a = byId(S.absences, WIZ.absId), e = byId(S.employees, a.empId);
   for (const r of WIZ.rows) for (const it of r.items) { if (!it.empId || it.empId === '*' || !(+it.h > 0)) continue; const l = candLoad(it.empId, r.date, a.id); if (l?.abs) return toast(`${fmtD(r.date)}: ${byId(S.employees, it.empId).name} сам відсутній (${l.abs.code}) — оберіть іншого`); }
   for (const r of WIZ.rows) { const used = r.items.reduce((x, it) => x + (+it.h || 0), 0); if (used > r.planned + 1e-9) return toast(`${fmtD(r.date)}: замін ${fmt(used)} год, а за графіком у ${e.name} лише ${fmt(r.planned)} — зменште години`); }
+  /* людина лишається записаною, навіть якщо години ще не вписані:
+     так було після імпорту табеля з Excel, і саме це раніше губилося при збереженні */
   const groups = new Map();
   for (const r of WIZ.rows) for (const it of r.items) {
     const key = it.empId && it.empId !== '*' ? 'e:' + it.empId : 't:' + (it.name || '').trim();
-    if (key === 't:' || !(+it.h > 0)) continue;
+    if (key === 't:') continue;
     if (!groups.has(key)) groups.set(key, { empId: it.empId && it.empId !== '*' ? it.empId : null, subName: it.empId && it.empId !== '*' ? '' : it.name.trim(), days: {} });
-    groups.get(key).days[r.date] = +it.h;
+    if (+it.h > 0) groups.get(key).days[r.date] = +it.h;
   }
   const old = subsOfAbs(a), keep = [];
   for (const g of groups.values()) {
@@ -1511,7 +1535,9 @@ function wizSave() {
     s.days = g.days; keep.push(s);
   }
   S.subs = S.subs.filter(x => x.absId !== a.id || keep.includes(x));
-  WIZ = null; MODAL = null; save(true); render(); toast(groups.size ? 'Заміни збережено' : 'Заміни очищено');
+  const noHours = [...groups.values()].filter(g => !Object.keys(g.days).length).length;
+  WIZ = null; MODAL = null; save(true); render();
+  toast(!groups.size ? 'Заміни очищено' : noHours ? `Збережено. ${noHours} ${plural(noHours, 'заміна', 'заміни', 'замін')} без годин — впишіть години, щоб вони потрапили в підсумки` : 'Заміни збережено');
 }
 
 /* ---------- Календар ---------- */
@@ -1916,6 +1942,7 @@ const ACT = {
   },
   absWizard: el => { const a = byId(S.absences, el.dataset.id); if (a) startWizard(a); },
   wizAdd: el => { const r = WIZ.rows[+el.dataset.i], used = r.items.reduce((x, it) => x + (+it.h || 0), 0); r.items.push({ empId: '', name: '', h: Math.max(0, r.planned - used) }); keepScroll(render); },
+  wizOk: () => { keepScroll(render); toast('Години застосовано'); },
   wizDel: el => { WIZ.rows[+el.dataset.i].items.splice(+el.dataset.j, 1); keepScroll(render); },
   wizQuick: el => { const r = WIZ.rows[+el.dataset.i], used = r.items.reduce((x, it) => x + (+it.h || 0), 0); r.items = r.items.filter(it => it.empId || it.name); r.items.push({ empId: el.dataset.id, name: '', h: Math.max(0, r.planned - used) }); keepScroll(render); },
   wizAssignAll: () => {
@@ -2016,6 +2043,7 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('input', e => {
   const el = e.target;
+  if (el.dataset.selq) { filterSelects(el.dataset.selq, el.value); return; }
   if (el.dataset.q) {
     const k = el.dataset.q;
     Q[k] = el.value;
@@ -2028,6 +2056,9 @@ document.addEventListener('input', e => {
     if (f === 'h') it.h = el.value === '' ? '' : +String(el.value).replace(',', '.');
     else if (f === 'name') it.name = el.value;
   }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.dataset?.w?.endsWith('|h')) { e.preventDefault(); e.target.blur(); keepScroll(render); }
 });
 document.addEventListener('change', e => {
   const el = e.target;
