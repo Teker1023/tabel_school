@@ -1,0 +1,2128 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Заборона будь-яких мережевих запитів зі сторінки: дані не можуть бути нікуди відправлені -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'">
+<meta name="theme-color" content="#2155C9">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<title>Табель школи</title>
+<style id="pinRule"></style>
+<style id="pageRule">@page{size:A4 portrait;margin:5mm 4mm}</style>
+<style>
+:root{
+  --bg:#EEF1F6; --surface:#FFFFFF; --raise:#F6F8FB; --sunk:#E9EDF3; --ink:#141A26; --ink2:#394253; --muted:#687386; --line:#DDE2EA; --line2:#C9D0DB;
+  --accent:#2457D6; --accent-ink:#FFFFFF; --accent-soft:#E6EDFC; --accent-line:#B9CBF5;
+  --ok:#127A50; --ok-soft:#DFF3E9; --warn:#9A5A00; --warn-soft:#FDF1DC; --warn-line:#E9BF74; --bad:#C0392B; --bad-soft:#FCE6E3;
+  --side:#10182A; --side-ink:#E7ECF5; --side-muted:#8E9AB0; --side-hover:#1B2540; --side-active:#24315A;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 4px 16px rgba(16,24,40,.05);
+  --display:"Bahnschrift SemiCondensed","Bahnschrift","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
+  --body:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  --sheet-ink:#000; --sheet-line:#777; --sheet-bg:#fff;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0C1017; --surface:#151B26; --raise:#1A2130; --sunk:#10151E; --ink:#E6EAF2; --ink2:#C3CAD7; --muted:#8F9AAE; --line:#273042; --line2:#34405A;
+    --accent:#7EA4FA; --accent-ink:#0A1224; --accent-soft:#1B2847; --accent-line:#34508F;
+    --ok:#5ACB96; --ok-soft:#132E24; --warn:#EDAE4E; --warn-soft:#33260F; --warn-line:#7A5A22; --bad:#FF8173; --bad-soft:#3A1D1A;
+    --side:#0A0E15; --side-hover:#141B28; --side-active:#1B2640;
+    --shadow:0 1px 2px rgba(0,0,0,.3);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0C1017; --surface:#151B26; --raise:#1A2130; --sunk:#10151E; --ink:#E6EAF2; --ink2:#C3CAD7; --muted:#8F9AAE; --line:#273042; --line2:#34405A;
+  --accent:#7EA4FA; --accent-ink:#0A1224; --accent-soft:#1B2847; --accent-line:#34508F;
+  --ok:#5ACB96; --ok-soft:#132E24; --warn:#EDAE4E; --warn-soft:#33260F; --warn-line:#7A5A22; --bad:#FF8173; --bad-soft:#3A1D1A;
+  --side:#0A0E15; --side-hover:#141B28; --side-active:#1B2640;
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14.5px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+h1,h2,h3{font-family:var(--display);font-weight:600;margin:0;letter-spacing:-.005em}
+p{margin:0}
+svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.muted{color:var(--muted)} .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- каркас ---------- */
+.app{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:0;height:100vh;background:var(--side);color:var(--side-ink);display:flex;flex-direction:column;padding:18px 12px;gap:4px;overflow-y:auto}
+.brand{display:flex;align-items:center;gap:11px;padding:4px 8px 18px;min-width:0}
+.logo{width:40px;height:40px;border-radius:11px;background:var(--accent);display:grid;place-items:center;flex:none;overflow:hidden;position:relative}
+.logo svg.i{width:23px;height:23px;stroke:#fff}
+.logo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.brand-t{min-width:0;display:flex;flex-direction:column;gap:1px}
+.brand-t b{font:600 18px/1.15 var(--display);color:#fff}
+.brand-t span{font-size:11.5px;line-height:1.3;color:var(--side-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brand-t span:empty{display:none}
+.nav-h{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--side-muted);font-weight:600;padding:14px 10px 6px}
+.nav-sep{height:1px;background:rgba(255,255,255,.08);margin:10px 8px}
+.nav{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;color:var(--side-ink);text-align:left;padding:9px 10px;border-radius:10px;position:relative}
+.nav:hover{background:var(--side-hover)}
+.nav[aria-current="page"]{background:var(--side-active)}
+.nav[aria-current="page"]::before{content:"";position:absolute;left:-12px;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:#7EA4FA}
+.nav-i{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:none;color:var(--side-muted)}
+.nav[aria-current="page"] .nav-i{color:#fff}
+.nav-i svg.i{width:18px;height:18px}
+.nav-t{display:flex;flex-direction:column;min-width:0}
+.nav-t b{font-weight:600;font-size:14.5px}
+.nav-t small{font-size:12px;color:var(--side-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav.warn .nav-t small{color:#F2BD66}
+.side-toggle{margin-top:auto}
+.side-foot{padding:14px 10px 2px;font-size:12.5px;color:var(--side-muted);display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.08)}
+.side-foot .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3FBF84;margin-right:7px;vertical-align:1px}
+.side-foot .dot.bad{background:#FF6F61}
+.side-foot .btn{align-self:flex-start}
+
+.content{min-width:0;padding:24px 28px 48px}
+#banner,#view{max-width:1400px;margin:0 auto}
+#banner{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+#view{display:flex;flex-direction:column;gap:16px}
+
+/* ---------- заголовок сторінки ---------- */
+.phead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px 24px;flex-wrap:wrap;padding-bottom:4px}
+.phead h1{font-size:30px;line-height:1.1}
+.lead{color:var(--ink2);max-width:760px;margin-top:6px;font-size:15px}
+.pactions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* ---------- картки, кнопки, поля ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--shadow);min-width:0}
+.card > header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card > header h2{font-size:20px}
+.card > header h3{font-size:17px}
+.card > header .sp{flex:1}
+.card .sub{color:var(--muted);font-size:13.5px;margin-top:-8px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:0 15px;border-radius:9px;border:1px solid var(--line2);background:var(--surface);font-weight:600;white-space:nowrap;color:var(--ink)}
+.btn:hover{background:var(--raise)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.warn{background:var(--warn-soft);border-color:var(--warn-line);color:var(--warn)}
+.btn.danger{color:var(--bad)}
+.btn.ghost{border-color:transparent;background:none;color:var(--ink2)}
+.btn.ghost:hover{background:var(--sunk)}
+.btn.small{min-height:31px;padding:0 11px;font-size:13px;border-radius:8px}
+.btn svg.i{width:17px;height:17px}
+.btn:disabled{opacity:.45;pointer-events:none}
+.x{border:0;background:none;color:var(--muted);width:32px;height:32px;border-radius:8px;display:inline-grid;place-items:center;padding:0}
+.x:hover{background:var(--bad-soft);color:var(--bad)}
+.x:disabled{opacity:.3;pointer-events:none}
+.x.plain:hover{background:var(--sunk);color:var(--ink)}
+input[type=text],input[type=number],input[type=date],input:not([type]),select,textarea{border:1px solid var(--line2);background:var(--surface);border-radius:8px;padding:6px 10px;min-height:36px;width:100%}
+input:hover,select:hover,textarea:hover{border-color:var(--muted)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+textarea{min-height:90px;resize:vertical;line-height:1.5}
+input[type=number]{font-variant-numeric:tabular-nums}
+input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin:0}
+.field{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--muted);font-weight:600;min-width:0}
+.field input,.field select,.field textarea{color:var(--ink);font-weight:400;font-size:14.5px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.row > .field{flex:1 1 160px}
+.row > .field.s{flex:0 0 120px}
+.row > .field.xs{flex:0 0 78px}
+.hint{font-size:13px;color:var(--muted)}
+.chk{display:inline-flex;align-items:center;gap:8px;font-weight:500;cursor:pointer}
+
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:99px;background:var(--sunk);color:var(--ink2);white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.blue{background:var(--accent-soft);color:var(--accent)}
+.pill svg.i{width:14px;height:14px}
+
+.notice{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-radius:12px;padding:12px 16px;background:var(--accent-soft);border:1px solid var(--accent-line)}
+.notice.warn{background:var(--warn-soft);border-color:var(--warn-line)}
+.notice.ok{background:var(--ok-soft);border-color:transparent}
+.notice.bad{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.notice.bad > svg.i{color:var(--bad)}
+.choice{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.choice button{display:flex;flex-direction:column;gap:6px;align-items:flex-start;text-align:left;border:1.5px solid var(--line2);background:var(--surface);border-radius:14px;padding:16px 18px;color:var(--ink)}
+.choice button:hover{border-color:var(--accent);background:var(--accent-soft)}
+.choice button > b{font:600 17px/1.2 var(--display);display:flex;align-items:center;gap:8px}
+.choice button span{font-size:13.5px;color:var(--ink2)}
+.notice > svg.i{width:20px;height:20px}
+.notice.warn > svg.i{color:var(--warn)}
+.notice .grow{flex:1 1 280px}
+
+details.more{border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow)}
+details.more > summary{list-style:none;cursor:pointer;padding:14px 18px;font-weight:600;display:flex;align-items:center;gap:10px}
+details.more > summary::-webkit-details-marker{display:none}
+details.more > summary::after{content:"";margin-left:auto;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s;flex:none}
+details.more[open] > summary::after{transform:rotate(-135deg)}
+details.more > summary small{font-weight:400;color:var(--muted)}
+details.more > .in{padding:0 18px 18px;display:flex;flex-direction:column;gap:12px}
+
+.seg{display:inline-flex;background:var(--sunk);border-radius:10px;padding:3px;gap:2px}
+.seg button{border:0;background:none;padding:6px 13px;border-radius:8px;font-weight:600;color:var(--muted);white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(16,24,40,.14)}
+
+/* ---------- таблиці ---------- */
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+table.tbl{border-collapse:separate;border-spacing:0;width:100%;background:var(--surface)}
+.tbl th,.tbl td{border-bottom:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:middle}
+.tbl tbody tr:last-child > *{border-bottom:0}
+.tbl thead th{background:var(--raise);font-size:11.5px;color:var(--muted);font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:.05em}
+.tbl td.num,.tbl th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl td.c,.tbl th.c{text-align:center}
+.tbl input,.tbl select{min-height:34px}
+.tbl tbody tr:hover > td{background:var(--raise)}
+.tbl tr.warnrow > td{background:var(--warn-soft)}
+.tbl tr.dim > td{color:var(--muted)}
+.cellname{font-weight:600}
+.cellsub{display:block;font-size:12.5px;color:var(--muted);font-weight:400}
+.toolbar{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap}
+.toolbar .sp{flex:1}
+.search{display:flex;align-items:center;gap:4px;border:1px solid var(--line2);border-radius:9px;padding:0 6px 0 10px;background:var(--surface);min-width:240px}
+.search input{border:0;background:none;padding:6px 0;min-height:34px}
+.search input:focus{outline:none;box-shadow:none}
+.search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.q{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--sunk);color:var(--muted);font:700 11px/1 var(--body);cursor:help;vertical-align:1px;margin-left:5px}
+.how{background:var(--raise);border-radius:10px;padding:12px 14px;font-size:13.5px;color:var(--ink2);display:flex;flex-direction:column;gap:6px}
+.how b{color:var(--ink)}
+.how code{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font:600 13px var(--body);white-space:nowrap}
+.cols2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;align-items:start}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.fact{background:var(--raise);border-radius:12px;padding:12px 16px}
+.fact b{display:block;font:600 22px/1.15 var(--display);margin-bottom:2px}
+.fact span{color:var(--muted);font-size:13px}
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:40px 20px}
+.empty > svg.i{width:44px;height:44px;color:var(--muted);stroke-width:1.4}
+.empty b{font:600 21px var(--display)}
+.empty p{color:var(--muted);max-width:480px}
+.drop{border:2px dashed var(--line2);border-radius:14px;padding:22px 24px;display:flex;flex-direction:row;align-items:center;gap:14px;text-align:left;background:var(--surface);cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover{border-color:var(--accent);background:var(--accent-soft)}
+.drop > svg.i{width:32px;height:32px;color:var(--accent);stroke-width:1.5}
+.drop b{font:600 17px/1.2 var(--display)}
+.drop > div > span{display:block;color:var(--muted);font-size:13px}
+body.dragging .drop{border-color:var(--accent);background:var(--accent-soft)}
+body.dragging::after{content:"Відпустіть файл, щоб завантажити";position:fixed;inset:0;z-index:99;display:grid;place-items:center;background:rgba(36,87,214,.16);font:600 28px var(--display);color:var(--accent);pointer-events:none}
+.pat{display:grid;grid-template-columns:repeat(5,52px);gap:4px}
+.pat input{text-align:center;padding:4px;min-height:32px}
+.pat small{display:block;text-align:center;font-size:11px;color:var(--muted)}
+.codepill{display:inline-block;font:700 12.5px/1 "Times New Roman",serif;padding:4px 8px;border-radius:6px;background:var(--sunk);min-width:32px;text-align:center}
+.ovr-list{display:flex;flex-wrap:wrap;gap:6px}
+.kbd{font:600 12px var(--body);border:1px solid var(--line2);border-radius:5px;padding:1px 6px;background:var(--raise)}
+
+/* ---------- календар ---------- */
+.cal{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.cal-m{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;box-shadow:var(--shadow)}
+.cal-m h3{font-size:15px;margin-bottom:8px;text-transform:capitalize}
+.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-g span{font-size:10.5px;color:var(--muted);text-align:center;font-weight:600}
+.cal-g button{border:1px solid transparent;background:var(--raise);border-radius:6px;font-size:12.5px;min-height:28px;padding:0;color:var(--ink);font-variant-numeric:tabular-nums}
+.cal-g button:hover{border-color:var(--accent)}
+.cal-g button.wk{background:var(--bad-soft);color:var(--bad)}
+.cal-g button.off{background:var(--bad);color:#fff;font-weight:700}
+.cal-g button.work{background:var(--ok);color:#fff;font-weight:700}
+.cal-g button.hol{outline:2px dashed var(--warn);outline-offset:-2px}
+.cal-g button.today{box-shadow:inset 0 0 0 2px var(--accent)}
+.cal-g i{display:block}
+
+/* ---------- табель (екран) ---------- */
+.sheetwrap{overflow:auto;max-height:calc(100vh - 150px);border:1px solid var(--line);border-radius:12px;background:#fff;color:#000}
+.sheet-page{background:#fff;color:#000;padding:18px 20px 24px;min-width:max-content}
+.sheet-head{display:grid;grid-template-columns:2fr 5fr;gap:8px;font:14px/1.3 "Times New Roman",serif;margin-bottom:10px}
+.sheet-head .t1{font:700 24px/1.2 "Times New Roman",serif;text-align:center;letter-spacing:.35em}
+.sheet-head .t2{font:17px/1.3 "Times New Roman",serif;text-align:center;border-bottom:1px solid #000;padding-bottom:2px}
+table.sheet{border-collapse:separate;border-spacing:0;font:14px/1.15 "Times New Roman",serif;color:#000;background:#fff;border-top:1.5px solid #4a5160;border-left:1.5px solid #4a5160}
+.sheet th,.sheet td{border-right:1px solid #7f8898;border-bottom:1px solid #7f8898;padding:0 4px;height:26px;text-align:center;vertical-align:middle;white-space:nowrap;font-weight:700}
+.sheet thead{position:sticky;top:0;z-index:4}
+.sheet thead th{background:#cfd9e8;color:#0b1220;font-weight:700;font-size:13px;line-height:1.15;white-space:normal;height:auto;padding:4px 4px;border-color:#55607a}
+.sheet thead th.dn{font-weight:700;font-size:14.5px;min-width:27px;padding:4px 2px;cursor:pointer;user-select:none}
+.sheet thead th.dn:hover{background:#b9c8de}
+.sheet thead th.dn.we{color:#b00000;background:#f3c4c4}
+.sheet thead th.dn.we:hover{background:#eeb0b0}
+/* обертаємо лише текст, а не клітинку — інакше її рамки «переїжджають» */
+.sheet th.rot{height:150px;width:34px;max-width:34px;padding:6px 1px;vertical-align:middle;overflow:hidden}
+.sheet th.rot > span{display:inline-block;writing-mode:vertical-rl;transform:rotate(180deg);max-height:140px;font-size:13px;font-weight:700;line-height:1.1;white-space:normal;text-align:center}
+.sheet thead th.tcol{border-left:2px solid #2f3747;border-right:2px solid #2f3747;background:#b9c8de}
+.sheet td.l{text-align:left}
+.sheet td.n{min-width:30px;font-size:13px}
+.sheet td.name{min-width:175px;font-size:14.5px;padding-left:7px;cursor:pointer}
+.sheet td.post{min-width:120px;font-weight:400;font-size:12.5px;padding-left:6px}
+.sheet td.rate{min-width:46px;border-right:2px solid #4a5160}
+.sheet td.d{min-width:27px;cursor:pointer;padding:0 2px}
+.sheet td.d.z,.sheet td.s.z{color:#6a7385;font-weight:400}
+.sheet td.s{min-width:34px;cursor:default;padding:0 2px}
+.sheet td.s.sf{border-left:1px solid #4a5160}
+.sheet td.s.last{background:#d5deec;font-size:15px;min-width:44px}
+.sheet td.t{background:#d5deec;border-left:2px solid #2f3747;border-right:2px solid #2f3747;min-width:38px;cursor:default}
+.sheet tr.alt > td{background:#e9eef6}
+.sheet tr.alt > td.t,.sheet tr.alt > td.s.last{background:#c9d4e6}
+.sheet td.we{background:#fbdada}
+.sheet tr.alt > td.we{background:#f6caca}
+.sheet td.c-ВП,.sheet td.c-ДД,.sheet tr.alt > td.c-ВП,.sheet tr.alt > td.c-ДД{background:#c6ddf8}
+.sheet td.c-ТН,.sheet tr.alt > td.c-ТН{background:#dfc9f4}
+.sheet td.c-НА,.sheet tr.alt > td.c-НА{background:#c2ebd0}
+.sheet td.c-В,.sheet td.c-ДО,.sheet td.c-Н,.sheet td.c-ВД,.sheet td.c-К,.sheet td.c-М,.sheet td.c-ЦН,.sheet td.c-П{background:#fbe3a1}
+.sheet td.d:hover{outline:2px solid var(--accent);outline-offset:-2px}
+.sheet td.ovr{box-shadow:inset 0 0 0 2px #e0a53a}
+.sheet tr.total td,.sheet tr.razom td{background:#c3cfe2;font-weight:700;border-top:1.5px solid #4a5160;border-bottom:1.5px solid #4a5160;height:28px}
+.sheet tr.band td{background:#cfd9e8;text-align:center;font-weight:700;font-size:15px;letter-spacing:.2em;height:28px}
+.sheet td.sublbl{text-align:left;font-weight:400;font-size:12.5px}
+.sheet .c-ВХ{color:#FF0000} .sheet .c-ВП,.sheet .c-ДД{color:#0070C0} .sheet .c-НА{color:#00903f} .sheet .c-ТН{color:#7030A0}
+.sheet td.sticky1,.sheet th.sticky1{position:sticky;left:0;z-index:1;background:#fff}
+.sheet td.sticky2,.sheet th.sticky2{position:sticky;left:31px;z-index:1;background:#fff;border-right:1px solid #4a5160}
+.sheet thead th.sticky1,.sheet thead th.sticky2{z-index:3;background:#cfd9e8}
+.sheet tr.total td.sticky1,.sheet tr.total td.sticky2,.sheet tr.razom td.sticky1,.sheet tr.razom td.sticky2{background:#c3cfe2}
+.sheet .empty-col{color:#bbb}
+.sheet-foot{display:grid;grid-template-columns:1fr 1fr;gap:10px 30px;margin-top:18px;font:13px/1.35 "Times New Roman",serif;max-width:1000px}
+.sheet-foot .sig{grid-column:1 / -1;display:flex;gap:40px;justify-content:space-between;font-size:14px;margin-bottom:6px}
+.sheet-foot table{border-collapse:collapse;width:100%}
+.sheet-foot td{padding:1px 6px;vertical-align:top;font-size:12px}
+.sheet-foot td.code{font-weight:700;white-space:nowrap;width:34px}
+.cellpop{position:absolute;z-index:50;background:var(--surface);color:var(--ink);border:1px solid var(--line2);border-radius:12px;box-shadow:0 10px 30px rgba(16,24,40,.2);padding:12px;display:flex;flex-direction:column;gap:8px;min-width:260px;font:14px var(--body)}
+.cellpop .why{font-size:12.5px;color:var(--muted)}
+.cellpop .codes{display:flex;flex-wrap:wrap;gap:4px}
+.cellpop .codes button{border:1px solid var(--line2);background:var(--surface);border-radius:6px;padding:3px 7px;font:700 12.5px "Times New Roman",serif;min-width:34px}
+.cellpop .codes button:hover{border-color:var(--accent);background:var(--accent-soft)}
+.cellpop input{min-height:34px}
+.extra-codes{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+
+#modal{position:fixed;inset:0;z-index:80;background:rgba(10,16,30,.55);display:grid;place-items:start center;overflow:auto;padding:30px 16px}
+.mbox{background:var(--surface);color:var(--ink);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.35);padding:22px;width:min(1000px,100%);display:flex;flex-direction:column;gap:14px}
+.mbox > header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.mbox > header h2{font-size:20px}
+.mbox > header .sp{flex:1}
+.loadinfo{display:block;font-size:12.5px;color:var(--muted);margin:-2px 0 6px}
+.loadinfo.bad{color:var(--bad);font-weight:600}
+.loadinfo.warn{color:var(--warn);font-weight:600}
+.mbox.center{align-self:center}
+.absbox{border:1px solid var(--line2);border-radius:12px;padding:12px 14px;background:var(--raise);display:flex;flex-direction:column;gap:8px}
+.absbox .who{font-size:13.5px}
+.sublist{margin:0;padding-left:18px;font-size:13.5px}
+.sheet tr.hl > td{background:#ffedb3!important}
+table.emp input{min-height:30px;padding:3px 7px}
+table.emp td{padding:4px 6px;vertical-align:middle}
+table.emp input.p{width:50px;text-align:center;padding:3px 2px}
+table.emp input.rate{width:64px;text-align:center}
+table.emp td.nm input{font-weight:600;min-width:170px}
+table.emp td.ti input{min-width:150px}
+table.emp tr.first > td{border-top:2px solid var(--line2)}
+table.emp tr.gone > td{opacity:.55}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0 6px}
+.chipbtn{border:1px solid var(--line2);background:var(--surface);border-radius:99px;font-size:12.5px;padding:3px 10px;color:var(--ink2)}
+.chipbtn:hover{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.chipbtn b{color:var(--ink)}
+.wizbar{background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:12px;padding:10px 14px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.zoomseg button{min-width:34px}
+/* табель — на всю ширину вікна, мінімальні поля */
+body[data-view="tabel"] .content{padding:10px 10px 14px}
+body[data-view="tabel"] #view,body[data-view="tabel"] #banner{max-width:none}
+body[data-view="tabel"] #view{gap:8px}
+body[data-view="tabel"] .phead{padding-bottom:0;align-items:center}
+body[data-view="tabel"] .phead h1{font-size:22px}
+body[data-view="tabel"] .phead .lead{display:none}
+body[data-view="tabel"] .sheet-page{padding:10px 10px 16px}
+table.sheet{margin:0 auto}
+/* згорнута бокова панель */
+.side-toggle{border:0;background:none;color:var(--side-muted);border-radius:8px;padding:6px 10px;display:flex;align-items:center;gap:10px;font-size:12.5px;width:100%;text-align:left}
+.side-toggle:hover{background:var(--side-hover);color:#fff}
+body[data-side="mini"] .app{grid-template-columns:64px minmax(0,1fr)}
+body[data-side="mini"] .side{padding:14px 8px;align-items:center}
+body[data-side="mini"] .brand{padding:0 0 12px}
+body[data-side="mini"] .brand-t,body[data-side="mini"] .nav-t,body[data-side="mini"] .side-foot,body[data-side="mini"] .side-toggle span{display:none}
+body[data-side="mini"] .nav{justify-content:center;padding:9px 0}
+body[data-side="mini"] .nav[aria-current="page"]::before{left:-8px}
+body[data-side="mini"] .side-toggle{justify-content:center;padding:8px 0}
+body[data-side="mini"] .side-toggle svg{transform:rotate(180deg)}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:var(--surface);padding:11px 18px;border-radius:10px;font-weight:600;z-index:100;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none}
+#toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (max-width:980px){
+  .app{grid-template-columns:1fr}
+  .side{position:sticky;top:0;z-index:40;height:auto;flex-direction:row;align-items:center;padding:8px 10px;overflow-x:auto;gap:2px}
+  .brand{padding:0 8px 0 2px}
+  .brand-t,.nav-h,.nav-sep,.side-foot,.nav-t small{display:none}
+  #steps{display:flex;gap:2px}
+  .nav{width:auto;padding:7px 9px;gap:8px}
+  .nav[aria-current="page"]::before{display:none}
+  .nav-t b{font-size:13.5px;white-space:nowrap}
+  .content{padding:16px 12px 40px}
+  .phead h1{font-size:24px}
+}
+
+/* ---------- друк: таблиця на всю ширину аркуша, мінімальні поля ---------- */
+@media print{
+  html,body{background:#fff;color:#000;font-size:10px;width:auto;overflow:visible!important}
+  .side,.noprint,#banner,#toast,#modal,.pactions,.phead,.cellpop,.extra-codes{display:none!important}
+  .app{display:block}
+  .content{padding:0}
+  #view{max-width:none;display:block}
+  .card{border:0;box-shadow:none;padding:0!important;display:block;overflow:visible!important;border-radius:0}
+  .sheetwrap{overflow:visible;max-height:none;border:0;border-radius:0}
+  .sheet-page{padding:0;min-width:0;width:100%}
+  .sheet-head{font-size:calc(var(--fs,5.6pt) * 1.25);margin-bottom:1.2mm;gap:3mm;width:100%}
+  .sheet-head .t1{font-size:calc(var(--fs,5.6pt) * 2.1);letter-spacing:.3em}
+  .sheet-head .t2{font-size:calc(var(--fs,5.6pt) * 1.5);padding-bottom:.3mm}
+  table.sheet{table-layout:fixed;width:100%;border-collapse:collapse;border:0;font-size:var(--fs,5.6pt);line-height:1.1}
+  .sheet thead{position:static}
+  .sheet th,.sheet td{border:0.2mm solid #000;padding:0;height:var(--rh,2.5mm);overflow:hidden;position:static!important;background:#fff;box-shadow:none!important;min-width:0!important;outline:0!important}
+  .sheet thead th{font-size:var(--fh,4.6pt);background:#fff;height:auto;padding:.2mm;line-height:1.05}
+  .sheet thead th.dn{font-size:var(--fs,5.6pt);min-width:0}
+  .sheet th.rot{height:var(--rot,17mm);width:auto;max-width:none;padding:.3mm 0}
+  .sheet th.rot > span{max-height:calc(var(--rot,17mm) - 1mm);font-size:var(--fh,4.6pt);line-height:1}
+  .sheet thead th.tcol,.sheet td.t{border:0.2mm solid #000}
+  .sheet-page{zoom:1!important}
+  body[data-view="tabel"] .content{padding:0}
+  body[data-view="tabel"] .sheet-page{padding:0}
+  .side-toggle{display:none}
+  .sheet thead th.sticky1,.sheet thead th.sticky2,.sheet thead th.tcol{background:#fff!important}
+  .sheet td.n{font-size:var(--fh,4.6pt)}
+  .sheet td.name{font-size:var(--fn,5.4pt);text-align:left;padding-left:.5mm;white-space:nowrap}
+  .sheet td.post{font-size:var(--fp,4.6pt);text-align:left;padding-left:.4mm;white-space:nowrap}
+  .sheet td.sublbl{font-size:var(--fp,4.6pt);white-space:nowrap}
+  .sheet td.rate,.sheet td.t,.sheet td.sticky2,.sheet td.s.sf{border:0.2mm solid #000}
+  .sheet td.d.z,.sheet td.s.z{color:#000;font-weight:700}
+  .sheet td.s.last{font-size:var(--fs,5.6pt)}
+  .sheet tr{break-inside:avoid;page-break-inside:avoid}
+  .sheet tr.alt > td,.sheet tr.hl > td{background:#fff!important}
+  .sheet td.we,.sheet tr.alt > td.we,.sheet thead th.dn.we{background:#e4e4e4!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .sheet td[class*="c-"]{background:#fff!important}
+  .sheet td.we[class*="c-"]{background:#e4e4e4!important}
+  .sheet td.t,.sheet td.s.last,.sheet tr.alt > td.t,.sheet tr.alt > td.s.last{background:#fff!important}
+  .sheet tr.total td,.sheet tr.razom td,.sheet tr.band td{background:#fff!important;height:var(--rh,2.5mm);border:0.2mm solid #000}
+  .sheet tr.band td{font-size:var(--fs,5.6pt);letter-spacing:.2em}
+  .sheet .empty-col{color:#000}
+  .sheet-foot{max-width:none;width:100%;margin-top:2mm;font-size:var(--fs,5.6pt);gap:1mm 6mm;break-inside:avoid}
+  .sheet-foot .sig{font-size:calc(var(--fs,5.6pt) * 1.25);margin-bottom:1mm}
+  .sheet-foot td{font-size:var(--fs,5.6pt);padding:0 1mm}
+  .sheet .c-ВХ,.sheet .c-ВП,.sheet .c-ДД,.sheet .c-НА,.sheet .c-ТН{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .sheet col.cn{width:var(--w-cn)} .sheet col.cname{width:var(--w-cname)} .sheet col.cpost{width:var(--w-cpost)} .sheet col.crate{width:var(--w-crate)} .sheet col.cd{width:var(--w-cd)} .sheet col.ct{width:var(--w-ct)} .sheet col.cs{width:var(--w-cs)} .sheet col.ce{width:var(--w-ce)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <span class="logo"><img id="logoImg" src="logo.gif" alt=""><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4M7 14h3M12 14h3M7 17.5h3"/></svg></span>
+      <div class="brand-t"><b>Табель</b><span id="schoolLbl"></span><span id="monthLbl"></span><span id="verLbl"></span></div>
+    </div>
+    <nav id="steps" aria-label="Розділи"></nav>
+    <button class="side-toggle noprint" data-act="sideToggle" title="Згорнути / розгорнути панель — більше місця для табеля"><svg class="i" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg><span>Згорнути панель</span></button>
+    <div class="side-foot" id="saveState"></div>
+  </aside>
+  <div class="content">
+    <div id="banner" hidden></div>
+    <main id="view"></main>
+  </div>
+</div>
+<div id="modal" hidden></div>
+<div id="toast" role="status"></div>
+<input type="file" id="fileXlsx" accept=".xlsx" hidden>
+<input type="file" id="fileJson" accept=".json" hidden>
+
+<script>
+'use strict';
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const byId = (arr, id) => arr.find(x => x.id === id);
+const fmt = n => String(Math.round((+n || 0) * 100) / 100).replace('.', ',');
+const hm = t => new Date(t).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+const today = () => { const d = new Date(); return iso(d.getFullYear(), d.getMonth() + 1, d.getDate()); };
+const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many; };
+
+/* окремі ключі — не перетинаються з іншими програмами школи */
+const LS = 'shkola-tabel-v1';
+const VERSION = '1.12 · 22.09.2026';
+
+const MONTHS = ['січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад', 'грудень'];
+const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
+const WD_FULL = ['понеділок', 'вівторок', 'середа', 'четвер', 'п’ятниця', 'субота', 'неділя'];
+/* коди табеля — порядок і текст як у легенді форми */
+const CODES = [
+  ['ВД', 'Відрядження'], ['В', 'Основна щорічна відпустка'], ['ТН', 'Непрацездатність (хвороба)'],
+  ['ВХ', 'Вихідні і святкові дні'], ['К', 'Службові відрядження'], ['Н', 'Додаткова відпустка у зв’язку з навчанням'],
+  ['ВП', 'Відпустка у зв’язку з вагітністю і пологами та для догляду за дитиною до 3 років'],
+  ['П', 'Прогули'], ['М', 'Мобілізація'], ['ЦН', 'Неявки дозволені законом'],
+  ['НА', 'Відпустка без збереження зарплати за згодою сторін'], ['ДД', 'По догляду за дитиною до 6 років'],
+  ['ДО', 'Додаткова оплачувана відпустка працівникам, які мають дітей']
+];
+const CODE_DESC = Object.fromEntries(CODES);
+const LEGEND_L = ['ВД', 'В', 'ТН', 'ВХ', 'К', 'Н', 'ВП'], LEGEND_R = ['П', 'М', 'ЦН', 'НА', 'ДД', 'ДО'];
+/* колонки-лічильники форми (AM…AS) */
+const COUNT_COLS = [['В', 'чергова відпустка'], ['ВП', 'відпустка по догляду до 3 років'], ['ТН', 'хвороба'], ['НА', 'безкошт. відпустка'], ['ДД', 'відпустка по догляду до 6 років'], ['П', 'Прогули'], ['ВХ', 'Вихідні та святкові']];
+const COUNTED = new Set(COUNT_COLS.map(c => c[0]));
+const CODE_COLOR = { ВХ: 'FF0000', ВП: '0070C0', ДД: '0070C0', НА: '00B050', ТН: '7030A0' };
+const ABS_CODES = CODES.map(c => c[0]).filter(c => c !== 'ВХ');
+/* довготривалі — за замовчуванням безстрокові */
+const LONG_CODES = new Set(['ВП', 'ДД', 'М']);
+
+/* ---------- дати ---------- */
+const iso = (y, m, d) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+const daysIn = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate();
+const parts = s => s.split('-').map(Number);
+const dow = s => { const [y, m, d] = parts(s); return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7; };   // 0 = Пн
+const addDays = (s, n) => { const [y, m, d] = parts(s); const t = new Date(Date.UTC(y, m - 1, d + n)); return iso(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()); };
+const fmtD = s => s ? s.slice(8, 10) + '.' + s.slice(5, 7) + '.' + s.slice(0, 4) : '';
+const fmtDM = s => s ? s.slice(8, 10) + '.' + s.slice(5, 7) : '';
+const monthName = (y, m) => `${MONTHS[m - 1]} ${y}`;
+function* dateRange(from, to) { for (let s = from; s <= to; s = addDays(s, 1)) yield s; }
+/* навчальний рік: 1 вересня — 31 травня */
+function inSchoolYear(s) { const md = s.slice(5); return md >= (S.schoolYear?.from || '09-01') || md <= (S.schoolYear?.to || '05-31'); }
+const schoolYearOf = (y, m) => m >= 9 ? y : y - 1;
+
+/* Великдень за юліанським календарем (алгоритм Меуса) → григоріанська дата */
+function orthodoxEaster(y) {
+  const a = y % 4, b = y % 7, c = y % 19, d = (19 * c + 15) % 30, e = (2 * a + 4 * b - d + 34) % 7;
+  const month = Math.floor((d + e + 114) / 31), day = ((d + e + 114) % 31) + 1;
+  const jul = new Date(Date.UTC(y, month - 1, day));
+  jul.setUTCDate(jul.getUTCDate() + 13);
+  return iso(jul.getUTCFullYear(), jul.getUTCMonth() + 1, jul.getUTCDate());
+}
+const HOLIDAYS_FIXED = [['01-01', 'Новий рік'], ['03-08', 'Міжнародний жіночий день'], ['05-01', 'День праці'], ['05-08', 'День пам’яті та перемоги'], ['06-28', 'День Конституції'], ['07-15', 'День Української Державності'], ['08-24', 'День Незалежності'], ['10-01', 'День захисників і захисниць'], ['12-25', 'Різдво Христове']];
+function holidaysOf(y) {
+  const m = new Map(HOLIDAYS_FIXED.map(([md, t]) => [y + '-' + md, t]));
+  const e = orthodoxEaster(y); m.set(e, 'Великдень'); m.set(addDays(e, 49), 'Трійця');
+  return m;
+}
+
+/* ---------- стан ---------- */
+function blank() {
+  return { v: 1, school: '', sign: { deputyTitle: 'Заст.директора по навч.частині', deputyName: '', directorTitle: 'Директор закладу', directorName: '' },
+    schoolYear: { from: '09-01', to: '05-31' }, print: { orientation: 'portrait', emptyCols: false }, holidays: false,
+    employees: [], calendar: {}, absences: [], subs: [], overrides: {}, updated: 0 };
+}
+function valid(d) {
+  if (!d || d.v !== 1 || !Array.isArray(d.employees) || !Array.isArray(d.absences) || !Array.isArray(d.subs)) return false;
+  if (!d.sign) d.sign = blank().sign;
+  if (!d.schoolYear) d.schoolYear = { from: '09-01', to: '05-31' };
+  if (!d.print) d.print = { orientation: 'portrait', emptyCols: false };
+  if (!d.calendar) d.calendar = {};
+  if (!d.overrides) d.overrides = {};
+  return true;
+}
+/* У програмі немає жодних даних школи: вони беруться з файлу табель.xlsx або з копії,
+   і лишаються лише на комп’ютері користувача. */
+const normName = s => String(s || '').toLowerCase().replace(/[\s.,]/g, '').replace(/[’'`ʼ]/g, '');
+const surname = s => String(s || '').trim().split(/[\s.]/)[0].toLowerCase().replace(/[’'`ʼ]/g, '');
+/* прізвище в родовому відмінку для «замість …» — евристика, поле завжди можна виправити вручну.
+   Прізвища на приголосну та -о не відмінюємо: стать за ініціалами невідома (жіночі не змінюються), так само робить школа */
+function genitive(full) {
+  const w = String(full).trim().split(/\s+/), s = w[0], rest = w.slice(1).join(' ');
+  let g = s;
+  if (/(ськ|цьк|зьк)а$/i.test(s)) g = s.slice(0, -1) + 'ої';
+  else if (/(ов|ев|єв|ин|ін|їн)а$/i.test(s)) g = s.slice(0, -1) + 'ої';
+  else if (/[жчшщ]а$/i.test(s)) g = s.slice(0, -1) + 'і';
+  else if (/а$/i.test(s)) g = s.slice(0, -1) + 'и';
+  else if (/я$/i.test(s)) g = s.slice(0, -1) + 'і';
+  else if (/ий$/i.test(s)) g = s.slice(0, -2) + 'ого';
+  else if (/ій$/i.test(s)) g = s.slice(0, -2) + 'ього';
+  return rest ? g + ' ' + rest : g;
+}
+/* знайти працівника за текстом у будь-якому відмінку («Іваненка І.І.» → «Іваненко І.І.») */
+function findEmpByRef(txt, list = S.employees) {
+  const n = normName(txt); if (!n) return null;
+  let e = list.find(x => normName(x.name) === n); if (e) return e;
+  const sn = surname(txt), ini = normName(String(txt).trim().split(/\s+/).slice(1).join(''));
+  const cand = list.filter(x => { const xs = surname(x.name), stem = Math.min(xs.length, sn.length) - 2; return stem >= 3 && xs.slice(0, stem) === sn.slice(0, stem); });
+  return cand.find(x => ini && normName(x.name.split(/\s+/).slice(1).join('')) === ini) || (cand.length === 1 ? cand[0] : null) || list.find(x => surname(x.name) === sn) || null;
+}
+
+let S = blank();
+let CUR = (() => { try { const c = JSON.parse(localStorage.getItem(LS + ':cur')); if (c && c.y && c.m) return c; } catch (e) {} const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() + 1 }; })();
+function setCur(y, m) { if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; } CUR = { y, m }; try { localStorage.setItem(LS + ':cur', JSON.stringify(CUR)); } catch (e) {} }
+
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+/* ---------- база даних (IndexedDB) + автоматичні копії ---------- */
+const DB_NAME = 'tabel-db', KEEP_SNAPS = 60;
+let dbp, saveT, savedAt = 0, saveErr = '';
+/* FIRST — у цьому браузері ще немає даних і користувач не вибрав, з чого почати; EPHEMERAL — схоже на приватне вікно */
+let FIRST = false, EPHEMERAL = false;
+function db() {
+  return dbp || (dbp = new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, 1);
+    r.onupgradeneeded = () => { r.result.createObjectStore('kv'); r.result.createObjectStore('snaps', { keyPath: 'id', autoIncrement: true }); };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }));
+}
+async function tx(store, mode, fn) {
+  const d = await db();
+  return new Promise((res, rej) => {
+    const t = d.transaction(store, mode), r = fn(t.objectStore(store));
+    t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+  });
+}
+const kvGet = key => tx('kv', 'readonly', st => st.get(key));
+const kvPut = (key, val) => tx('kv', 'readwrite', st => st.put(val, key));
+const kvDel = key => tx('kv', 'readwrite', st => st.delete(key));
+
+/* Скасування останньої зміни (кнопка внизу панелі або Ctrl+Z) */
+const UNDO = [];
+let lastState = null, lastPush = 0;
+function save(step) {
+  const now = Date.now(), cur = JSON.stringify(S);
+  if (lastState && lastState !== cur) {
+    if (step || now - lastPush > 2500) { UNDO.push(lastState); if (UNDO.length > 40) UNDO.shift(); }
+    lastPush = now;
+  }
+  lastState = cur;
+  S.updated = Date.now();
+  clearTimeout(saveT); saveT = setTimeout(flush, 300);
+}
+async function flush() {
+  clearTimeout(saveT);
+  if (FIRST) return;
+  try { await kvPut('data', S); savedAt = Date.now(); saveErr = ''; }
+  catch (e) { saveErr = 'Не вдалося зберегти!'; }
+  showSave(); folderSave();
+}
+const summary = d => `${d.employees.length} прац., ${d.absences.length} відсутн., ${d.subs.length} замін`;
+const hasData = () => S.employees.length > 0;
+async function snapshot(reason) {
+  if (!hasData() || FIRST) return;
+  await tx('snaps', 'readwrite', st => st.add({ at: Date.now(), reason, info: summary(S), data: JSON.parse(JSON.stringify(S)) }));
+  const all = await listSnaps();
+  if (all.length > KEEP_SNAPS) await tx('snaps', 'readwrite', st => all.slice(KEEP_SNAPS).forEach(s => st.delete(s.id)));
+}
+async function listSnaps() {
+  const all = await tx('snaps', 'readonly', st => st.getAll());
+  return all.sort((a, b) => b.at - a.at);
+}
+
+/* копії в папку на диску (Chrome / Edge) */
+const canDir = 'showDirectoryPicker' in window;
+let DIR = null, dirOk = false, dirAt = 0, dirT;
+function folderSave() { clearTimeout(dirT); dirT = setTimeout(writeFolder, 2000); }
+async function writeFolder() {
+  if (!DIR || !dirOk || !hasData()) return;
+  try {
+    const put = async (dir, name) => { const w = await (await dir.getFileHandle(name, { create: true })).createWritable(); await w.write(JSON.stringify(S, null, 1)); await w.close(); };
+    await put(DIR, 'Табель — поточні дані.json');
+    const sub = await DIR.getDirectoryHandle('Копії по днях', { create: true });
+    await put(sub, `Табель ${today()}.json`);
+    dirAt = Date.now();
+  } catch (e) { dirOk = false; }
+  showSave();
+}
+function showSave() {
+  const el = $('#saveState'); if (!el) return;
+  let h = saveErr ? `<span><i class="dot bad"></i>${saveErr}</span>` : `<span><i class="dot"></i>Збережено${savedAt ? ' о ' + hm(savedAt) : ''}</span>`;
+  if (UNDO.length) h += `<button class="btn small ghost" data-act="undo" title="Скасувати останню зміну (Ctrl+Z)">${ic('restore')} Скасувати</button>`;
+  if (DIR && dirOk) h += `<span>Копія в папці «${esc(DIR.name)}»${dirAt ? ' о ' + hm(dirAt) : ''}</span>`;
+  else if (DIR) h += `<button class="btn small warn" data-act="reconnectDir">Дозволити копії в папку</button>`;
+  else if (canDir) h += `<span>Папку для копій не вибрано</span>`;
+  el.innerHTML = h;
+  showBanner();
+}
+async function takeData(d, from) {
+  if (!valid(d)) { toast('Це не файл програми «Табель»'); return false; }
+  if (FIRST) { FIRST = false; MODAL = null; } else await snapshot('перед відновленням');
+  S = d; await flush();
+  toast('Відновлено: ' + from); return true;
+}
+
+/* ---------- календар ---------- */
+function isWorkingDay(s) {
+  const o = S.calendar[s]; if (o) return o.kind === 'work';
+  if (S.holidays && holidaysOf(+s.slice(0, 4)).has(s)) return false;
+  return dow(s) < 5;
+}
+const workAs = s => { const o = S.calendar[s]; return o && o.kind === 'work' && o.as != null ? o.as : dow(s); };
+function dayTitle(s) {
+  const o = S.calendar[s];
+  if (o) return o.kind === 'work' ? `робочий день (за розкладом ${WD[o.as ?? dow(s)]})` : 'неробочий день' + (o.title ? ': ' + o.title : '');
+  if (S.holidays) { const h = holidaysOf(+s.slice(0, 4)).get(s); if (h) return 'свято: ' + h; }
+  return dow(s) < 5 ? 'робочий день' : 'вихідний';
+}
+
+/* ---------- працівники, графіки, відсутності ---------- */
+const emps = () => [...S.employees].sort((a, b) => a.order - b.order);
+function loadAt(pos, s) { let l = null; for (const x of pos.loads) if (x.from <= s && (!l || x.from >= l.from)) l = x; return l; }
+const lastLoad = pos => pos.loads.reduce((a, x) => !a || x.from >= a.from ? x : a, null);
+const empActive = (e, s) => (!e.from || s >= e.from) && (!e.to || s <= e.to);
+const posActive = (p, s) => !p.to || s <= p.to;
+function absAt(empId, s) {
+  let best = null;
+  for (const a of S.absences) if (a.empId === empId && a.from <= s && (!a.to || s <= a.to) && (!best || a.from >= best.from)) best = a;
+  return best;
+}
+const ovrKey = (pos, s) => pos.id + '|' + s;
+/* значення клітинки табеля: вручну → відсутність → вихідний → графік */
+function cellValue(emp, pos, s) {
+  const k = ovrKey(pos, s); if (k in S.overrides) return S.overrides[k];
+  if (!empActive(emp, s) || !posActive(pos, s)) return '';
+  const a = absAt(emp.id, s); if (a) return a.code;
+  const l = loadAt(pos, s); if (!l) return '';   // посада ще не почалась — порожньо, навіть у вихідні
+  if (!isWorkingDay(s)) return 'ВХ';
+  if (!l.pattern) return '';
+  const h = l.pattern[workAs(s)]; return h == null ? '' : h;
+}
+function cellWhy(emp, pos, s) {
+  const k = ovrKey(pos, s), base = [];
+  if (!empActive(emp, s)) base.push('працівник не працює в цю дату');
+  else if (!posActive(pos, s)) base.push('посада закрита');
+  else {
+    const a = absAt(emp.id, s);
+    if (a) base.push(`відсутність ${a.code} (${CODE_DESC[a.code] || ''}) ${fmtDM(a.from)}–${a.to ? fmtDM(a.to) : '…'}`);
+    else if (!loadAt(pos, s)) base.push('посада ще не почалась (графік діє пізніше)');
+    else if (!isWorkingDay(s)) base.push(dayTitle(s));
+    else { const l = loadAt(pos, s); base.push(l.pattern ? `за графіком ${WD[workAs(s)]}: ${fmt(l.pattern[workAs(s)] ?? 0)} год` : 'графік не заданий'); }
+  }
+  if (k in S.overrides) base.unshift(`вручну: ${S.overrides[k] === '' ? 'порожньо' : S.overrides[k]}`);
+  return base.join('; ');
+}
+function rowTotals(cells) {
+  const t = { days: 0, sum: 0, h1: 0, c: {} };
+  cells.forEach((v, i) => { if (typeof v === 'number') { t.days++; t.sum += v; } else if (v) t.c[v] = (t.c[v] || 0) + 1; });
+  return t;
+}
+const addTotals = rows => rows.reduce((a, r) => { a.days += r.tot.days; a.sum += r.tot.sum; a.h1 += r.tot.h1; for (const k in r.tot.c) a.c[k] = (a.c[k] || 0) + r.tot.c[k]; return a; }, { days: 0, sum: 0, h1: 0, c: {} });
+const subName = s => s.empId ? (byId(S.employees, s.empId)?.name || '?') : s.subName;
+/* модель місяця — одне джерело для екрана, друку й Excel */
+function monthRows(y, m) {
+  const n = daysIn(y, m), dates = Array.from({ length: n }, (_, i) => iso(y, m, i + 1)), first = dates[0], last = dates[n - 1];
+  /* «разом за І пол» у формі школи — робочі дні 1–15 за календарем (0, якщо явок за місяць немає) */
+  const wd1 = dates.slice(0, 15).filter(isWorkingDay).length, half = tot => { tot.h1 = tot.days ? wd1 : 0; return tot; };
+  const rows = []; let num = 0;
+  for (const e of emps()) {
+    if ((e.from && e.from > last) || (e.to && e.to < first)) continue;
+    /* рядок є, якщо посада відкрита і її графік уже почав діяти (хоч без годин) */
+    const ps = e.positions.filter(p => (!p.to || p.to >= first) && loadAt(p, last)); if (!ps.length) continue;
+    num++;
+    ps.forEach((p, i) => {
+      const cells = dates.map(s => cellValue(e, p, s));
+      const rate = (loadAt(p, last) || lastLoad(p))?.rate;
+      rows.push({ num: i ? '' : num, emp: e, pos: p, first: !i, span: ps.length, sameTitle: ps.every(x => !x.title || x.title === ps[0].title), rate, cells, tot: half(rowTotals(cells)) });
+    });
+  }
+  const ym = first.slice(0, 7);
+  const subRows = S.subs.filter(s => s.month === ym || Object.keys(s.days).some(d => d >= first && d <= last)).map(s => {
+    const cells = dates.map(d => d in s.days ? s.days[d] : isWorkingDay(d) ? '' : 'ВХ');
+    return { sub: s, name: subName(s), label: s.forLabel, cells, tot: half(rowTotals(cells)) };
+  });
+  return { y, m, dates, rows, subRows, total: addTotals(rows), subTotal: addTotals(subRows) };
+}
+/* планові години працівника в день за графіком усіх посад */
+function plannedHours(emp, s) {
+  if (!isWorkingDay(s)) return 0;
+  return emp.positions.filter(p => posActive(p, s)).reduce((a, p) => { const l = loadAt(p, s); const v = l && l.pattern ? l.pattern[workAs(s)] : null; return a + (typeof v === 'number' ? v : 0); }, 0);
+}
+/* години, які треба заміняти: уроки. Адміністративні години директора/заступників (коли є ще рядок уроків) не заміняються */
+const isAdminPos = (emp, p) => emp.positions.length > 1 && /директор/i.test(p.title);
+function lessonHours(emp, s) {
+  if (!isWorkingDay(s)) return 0;
+  return emp.positions.filter(p => posActive(p, s) && !isAdminPos(emp, p)).reduce((a, p) => { const l = loadAt(p, s); const v = l && l.pattern ? l.pattern[workAs(s)] : null; return a + (typeof v === 'number' ? v : 0); }, 0);
+}
+/* робочі дні відсутності в межах навчального року, коли є уроки */
+function subDates(a) {
+  const emp = byId(S.employees, a.empId); if (!emp) return [];
+  const to = a.to || addDays(a.from, 60), out = [];
+  for (const s of dateRange(a.from, to)) if (inSchoolYear(s) && lessonHours(emp, s) > 0) out.push({ date: s, planned: lessonHours(emp, s) });
+  return out;
+}
+const subsOfAbs = a => S.subs.filter(s => s.absId === a.id);
+const subHours = s => Object.values(s.days).reduce((x, v) => x + (+v || 0), 0);
+/* скільки годин замін уже записано на день по цій відсутності (без рядка except) */
+const subHoursOn = (absId, date, except) => S.subs.filter(s => s.absId === absId && s !== except).reduce((a, s) => a + (+s.days[date] || 0), 0);
+/* планові години відсутнього в день — ліміт для замін */
+function absPlanned(a, date) { const e = byId(S.employees, a.empId); return e ? lessonHours(e, date) : 0; }
+/* довгі відсутності (ВП, ДД, М) замін не потребують: на це місце береться інша людина */
+function needsSubs(a) { return a.code !== 'ВХ' && !LONG_CODES.has(a.code) && subDates(a).length > 0 && !subsOfAbs(a).some(s => subHours(s) > 0); }
+/* ---------- читання .xlsx (без інтернету) ---------- */
+function unzip(buf) {
+  const dv = new DataView(buf), u8 = new Uint8Array(buf), td = new TextDecoder();
+  let e = -1;
+  for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { e = i; break; }
+  if (e < 0) throw new Error('файл пошкоджений або це не .xlsx');
+  const n = dv.getUint16(e + 10, true), files = {};
+  let p = dv.getUint32(e + 16, true);
+  for (let k = 0; k < n; k++) {
+    const method = dv.getUint16(p + 10, true), size = dv.getUint32(p + 20, true);
+    const nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+    const name = td.decode(u8.subarray(p + 46, p + 46 + nl));
+    const start = off + 30 + dv.getUint16(off + 26, true) + dv.getUint16(off + 28, true);
+    files[name] = { method, data: u8.subarray(start, start + size) };
+    p += 46 + nl + xl + cl;
+  }
+  const raw = async name => {
+    const f = files[name]; if (!f) return null;
+    if (f.method === 0) return f.data.slice().buffer;
+    if (typeof DecompressionStream === 'undefined') throw new Error('оновіть браузер (Chrome або Edge)');
+    return new Response(new Blob([f.data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer();
+  };
+  return { names: Object.keys(files), has: n => n in files, bytes: raw, text: async n => { const b = await raw(n); return b ? td.decode(b) : null; } };
+}
+const xmlDoc = s => new DOMParser().parseFromString(s, 'application/xml');
+const tags = (el, t) => [...el.getElementsByTagNameNS('*', t)];
+function colIdx(letters) { let n = 0; for (const ch of letters) n = n * 26 + ch.charCodeAt(0) - 64; return n - 1; }
+/* рядки аркуша за номером (порожні рядки зберігають номер) */
+function sheetRows(xml, shared) {
+  const doc = xmlDoc(xml), rows = [];
+  for (const r of tags(doc, 'row')) {
+    const arr = [], rn = +r.getAttribute('r');
+    for (const c of tags(r, 'c')) {
+      const col = colIdx((c.getAttribute('r') || '').replace(/\d+/g, ''));
+      const vEl = tags(c, 'v')[0], t = c.getAttribute('t');
+      let v;
+      if (t === 's') v = shared[+(vEl?.textContent)] ?? '';
+      else if (t === 'inlineStr' || t === 'str') v = tags(c, 't').map(x => x.textContent).join('') || vEl?.textContent || '';
+      else { const raw = vEl?.textContent; v = raw == null || raw === '' ? '' : +raw; }
+      arr[col >= 0 ? col : arr.length] = typeof v === 'string' ? v.trim() : v;
+    }
+    rows[rn - 1] = arr;
+  }
+  const merges = tags(doc, 'mergeCell').map(m => m.getAttribute('ref'));
+  return { rows, merges };
+}
+/* читання табеля школи: всі аркуші-місяці */
+async function readTabel(z) {
+  const shared = [], ss = await z.text('xl/sharedStrings.xml');
+  if (ss) for (const si of tags(xmlDoc(ss), 'si')) shared.push(tags(si, 't').map(t => t.textContent).join(''));
+  const wb = xmlDoc(await z.text('xl/workbook.xml')), rels = xmlDoc(await z.text('xl/_rels/workbook.xml.rels'));
+  const relMap = {}; for (const r of tags(rels, 'Relationship')) relMap[r.getAttribute('Id')] = r.getAttribute('Target');
+  const out = [];
+  for (const sh of tags(wb, 'sheet')) {
+    const rid = sh.getAttribute('r:id') || [...sh.attributes].find(a => a.localName === 'id')?.value;
+    let target = relMap[rid] || ''; if (!target.startsWith('xl/')) target = 'xl/' + target.replace(/^\/?xl\//, '').replace(/^\//, '');
+    const xml = await z.text(target); if (!xml) continue;
+    const { rows, merges } = sheetRows(xml, shared);
+    const head = rows.slice(0, 3).flat().map(v => String(v ?? '')).join(' ');
+    const mm = head.match(/за\s+(\S+)\s+(\d{4})\s+року/i); if (!mm) continue;
+    const m = MONTHS.indexOf(mm[1].toLowerCase()); if (m < 0) continue;
+    out.push(parseTabelSheet(rows, merges, +mm[2], m + 1, sh.getAttribute('name')));
+  }
+  return out;
+}
+const DAYCOLS = [...Array.from({ length: 15 }, (_, i) => 4 + i), ...Array.from({ length: 16 }, (_, i) => 20 + i)];
+function parseTabelSheet(rows, merges, y, m, sheetName) {
+  const n = daysIn(y, m), res = { y, m, sheetName, employees: [], subs: [], school: '', sign: null, warnings: [] };
+  /* «Підприємство: <назва>» з шапки */
+  for (const r0 of rows.slice(0, 3)) for (const v of (r0 || [])) { const t = String(v ?? ''); const mm = t.match(/Підприємство\s*:?\s*(.+)/i); if (mm && !res.school) res.school = mm[1].trim(); }
+  const mergedB = new Set(); for (const r of merges) { const mm = r.match(/^B(\d+):B(\d+)$/); if (mm) for (let i = +mm[1] + 1; i <= +mm[2]; i++) mergedB.add(i); }
+  const isNum = v => typeof v === 'number';
+  const txt = v => String(v ?? '').trim();
+  let r = 7, cur = null;
+  for (; r < rows.length; r++) {
+    const row = rows[r] || [], b = txt(row[1]);
+    if (/^всього/i.test(b)) break;
+    const first = !mergedB.has(r + 1) && b;
+    if (!first && !cur) continue;
+    if (first) { cur = { name: b.replace(/\s+/g, ' '), positions: [] }; res.employees.push(cur); }
+    const cells = Array.from({ length: n }, (_, i) => row[DAYCOLS[i]]);
+    const pat = [null, null, null, null, null], seen = [[], [], [], [], []];
+    cells.forEach((v, i) => { const s = iso(y, m, i + 1), wd = dow(s); if (isNum(v) && wd < 5) seen[wd].push(v); });
+    for (let wd = 0; wd < 5; wd++) if (seen[wd].length) { const cnt = {}; let best = seen[wd][0]; for (const v of seen[wd]) { cnt[v] = (cnt[v] || 0) + 1; if (cnt[v] > cnt[best]) best = v; } pat[wd] = best; }
+    const has = pat.some(p => p != null);
+    const pattern = has ? pat.map(p => p == null ? pat.find(x => x != null) : p) : null;
+    const codes = [];
+    if (first) {
+      let run = null;
+      cells.forEach((v, i) => {
+        const s = iso(y, m, i + 1), code = typeof v === 'string' && v && v !== 'ВХ' ? v : null;
+        if (run && code !== run.code) { codes.push(run); run = null; }
+        if (code && !run) run = { code, from: s, to: s }; else if (code) run.to = s;
+      });
+      if (run) codes.push(run);
+    }
+    const ovr = [];
+    cells.forEach((v, i) => { const s = iso(y, m, i + 1), wd = dow(s); if (isNum(v) && wd < 5 && pattern && v !== pattern[wd]) ovr.push({ date: s, v }); });
+    /* посада почалась не з 1-го: попереду порожні клітинки */
+    const firstFilled = cells.findIndex(v => v !== '' && v != null);
+    const start = firstFilled > 0 && cells.slice(0, firstFilled).every(v => v === '' || v == null) ? firstFilled : 0;
+    cur.positions.push({ title: txt(row[2]), rate: isNum(row[3]) ? row[3] : null, pattern, patRaw: has ? pat : null, codes, ovr, cells, start });
+  }
+  /* блок замін до «Разом» */
+  for (r++; r < rows.length; r++) {
+    const row = rows[r] || [], b = txt(row[1]);
+    if (/^разом/i.test(b)) break;
+    if (!b || /^заміна$/i.test(b)) continue;
+    const label = txt(row[2]).replace(/^\(\s*/, '').replace(/\s*\)\.?$/, '').replace(/\s+/g, ' ');
+    const days = {};
+    DAYCOLS.forEach((c, i) => { if (i < n && isNum(row[c])) days[iso(y, m, i + 1)] = row[c]; });
+    res.subs.push({ name: b, label, days });
+  }
+  /* підписи під таблицею: «Посада      Ім'я» у колонці B, ім'я може бути в сусідній колонці */
+  const sign = [];
+  for (r++; r < rows.length && sign.length < 2; r++) {
+    const row = rows[r] || [], b = txt(row[1]); if (!b || /^\(/.test(b)) continue;
+    const rest = row.slice(2, 12).map(txt).filter(Boolean)[0] || '';
+    const mm = b.match(/^(.*?)\s{3,}(\S.*)$/);
+    sign.push(mm ? { post: mm[1].trim(), name: mm[2].trim() } : { post: b, name: rest });
+  }
+  if (sign.length) res.sign = sign;
+  return res;
+}
+async function openXlsxFile(f) {
+  try {
+    const z = unzip(await f.arrayBuffer());
+    const sheets = await readTabel(z);
+    if (!sheets.length) return toast('У файлі не знайдено аркушів табеля');
+    /* перший запуск: файл Excel → одразу всі місяці */
+    if (FIRST) { IMPORT = { file: f.name, sheets, pick: 0, mode: 'full' }; return importAll('all'); }
+    IMPORT = { file: f.name, sheets, pick: sheets.findIndex(s => s.y === CUR.y && s.m === CUR.m) >= 0 ? sheets.findIndex(s => s.y === CUR.y && s.m === CUR.m) : sheets.length - 1, mode: 'sched' };
+    go('data');
+  } catch (e) { toast('Не вдалося прочитати файл: ' + e.message); }
+}
+async function openJsonFile(f) {
+  try {
+    const d = JSON.parse(await f.text());
+    await takeData(d, f.name); render();
+  } catch (e) { toast('Не вдалося прочитати файл'); }
+}
+
+/* ---------- запис .xlsx ---------- */
+const enc = new TextEncoder();
+let CRC;
+function crc32(u) {
+  if (!CRC) { CRC = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let j = 0; j < 8; j++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; CRC[n] = c >>> 0; } }
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < u.length; i++) c = CRC[(c ^ u[i]) & 255] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function zip(files, type) {
+  const parts = [], central = [];
+  let off = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name), data = enc.encode(f.data), crc = crc32(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(12, 33, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true);
+    parts.push(new Uint8Array(lh.buffer), name, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(14, 33, true);
+    ch.setUint32(16, crc, true); ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, name.length, true); ch.setUint32(42, off, true);
+    central.push(new Uint8Array(ch.buffer), name);
+    off += 30 + name.length + data.length;
+  }
+  const cd = central.reduce((a, b) => a + b.length, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, cd, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...central, new Uint8Array(e.buffer)], { type });
+}
+const xe = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function colName(i) { let s = ''; i++; while (i) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = (i - m - 1) / 26; } return s; }
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+}
+
+/* стилі таблиці: шрифти й рамки як в оригінальному файлі школи (Times New Roman 36/28, тонкі рамки) */
+const XF = { def: 0, title: 1, school: 2, subtitle: 3, hdr: 4, hdrRot: 5, num: 6, name: 7, code: 8, ВХ: 9, ВП: 10, ДД: 10, НА: 11, ТН: 12, label: 13, sig: 14, legend: 15, legendCode: 16, post: 17, small: 18, band: 19 };
+function stylesXml() {
+  const M = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  const F = (sz, b, color) => `<font>${b ? '<b/>' : ''}<sz val="${sz}"/>${color ? `<color rgb="FF${color}"/>` : ''}<name val="Times New Roman"/><family val="1"/></font>`;
+  const fonts = ['<font><sz val="10"/><name val="Arial"/></font>', F(36, 1), F(28, 0), F(36, 0), F(28, 1), F(36, 1, 'FF0000'), F(36, 1, '0070C0'), F(36, 1, '00B050'), F(36, 1, '7030A0')];
+  const borders = ['<border><left/><right/><top/><bottom/><diagonal/></border>',
+    '<border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/><diagonal/></border>',
+    '<border><left/><right/><top/><bottom style="thin"/><diagonal/></border>'];
+  const X = (font, border, al = 'center', wrap = false, rot = 0, vert = 'center') =>
+    `<xf numFmtId="0" fontId="${font}" fillId="0" borderId="${border}" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="${al}" vertical="${vert}"${wrap ? ' wrapText="1"' : ''}${rot ? ` textRotation="${rot}"` : ''}/></xf>`;
+  const xfs = [
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>',   // 0 def
+    X(1, 0),                    // 1 title
+    X(2, 0, 'left', true),      // 2 school
+    X(3, 2),                    // 3 subtitle
+    X(4, 1, 'center', true),    // 4 hdr
+    X(4, 1, 'center', true, 90),// 5 hdrRot
+    X(1, 1),                    // 6 num
+    X(1, 1, 'center', true),    // 7 name
+    X(1, 1),                    // 8 code (чорний)
+    X(5, 1), X(6, 1), X(7, 1), X(8, 1), // 9..12 ВХ ВП НА ТН
+    X(4, 1),                    // 13 label (Всього:, Разом)
+    X(3, 0, 'left'),            // 14 sig
+    X(2, 0, 'left'),            // 15 legend
+    X(4, 0, 'left'),            // 16 legendCode
+    X(4, 1, 'center', true),    // 17 post
+    X(4, 1),                    // 18 small (№, ставка)
+    X(1, 1, 'center')           // 19 band «Заміна»
+  ];
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="${M}"><fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="${borders.length}">${borders.join('')}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+}
+/* ширини колонок форми (A…AY) як в оригіналі */
+const SHEET_WIDTHS = (() => {
+  const w = Array(51).fill(9);
+  w[0] = 19; w[1] = 63.33; w[2] = 49.33; w[3] = 15.66; w[4] = 12.44; w[5] = 11.33; w[19] = 17.55; w[20] = 11.33; w[22] = 11.33; w[27] = 11.33; w[29] = 11.33; w[35] = 8.66;
+  w[36] = 18.22; w[37] = 11.33; w[38] = 17.55; w[39] = 14.66; w[40] = 11.33; w[41] = 17.33; w[42] = 16.11; w[43] = 11.33; w[44] = 13.89; w[45] = 19.33; w[46] = 19.33; w[47] = 19.55; w[48] = 9.55; w[49] = 8.44; w[50] = 9;
+  return w;
+})();
+const DAYCOL = i => i < 15 ? 4 + i : 20 + (i - 15);   // індекс колонки для дня (0-based)
+const COL = { T: 19, AK: 36, AM: 38, AV: 47 };
+/* аркуш табеля за місяць: масив рядків {h, cells:[{c, v|f, s}]}, злиття, область друку */
+function tabelSheet(M) {
+  const n = M.dates.length, rows = [], merges = [];
+  const cell = (c, v, s, f) => ({ c, v, s, f });
+  const push = (h, cells) => { rows.push({ h, cells }); return rows.length; };   // повертає номер рядка (1-based)
+  const A = colName, R = (c, r) => A(c) + r;
+  push(46.2, [cell(0, `Підприємство:  ${S.school}`, XF.school), cell(7, 'Т А Б Е Л Ь', XF.title)]);
+  push(13.2, [cell(7, `використання робочого часу за ${MONTHS[M.m - 1]} ${M.y} року`, XF.subtitle)]);
+  push(27.75, []);
+  merges.push('A1:G3', 'H1:AX1', 'H2:AX3');
+  const hdr = (c, t, rot) => cell(c, t, rot ? XF.hdrRot : XF.hdr);
+  push(107.25, [hdr(0, '№№ п/п', 1), hdr(1, 'Прізвище, ім’я та по батькові'), hdr(2, 'Професія, посада'), hdr(3, 'Розряд, ставка'), hdr(5, ''), hdr(36, 'Дні явок'), hdr(38, 'Неявки (л-днів)'), hdr(43, 'Прогули'), hdr(44, 'Вихідні та святкові'), hdr(45, 'Недопрацьовані год'), hdr(47, 'Відпрацьовано годин')]);
+  const r5 = [];
+  for (let i = 0; i < 31; i++) r5.push(hdr(DAYCOL(i), i < n ? i + 1 : ''));
+  r5.push(hdr(19, 'разом за І пол'), hdr(36, 'фактич роботи', 1), hdr(37, 'цілозм простої', 1));
+  COUNT_COLS.forEach(([c, t], i) => { if (i < 5) r5.push(hdr(38 + i, t, 1)); });
+  r5.push(hdr(45, 'плинність простоїв', 1), hdr(46, 'всього годин', 1), hdr(47, 'Всього', 1), hdr(48, 'З них'));
+  push(33, r5);
+  push(12.75, [hdr(48, 'нічні', 1), hdr(49, '', 1), hdr(50, 'вечірні', 1)]);
+  push(96.75, []);
+  merges.push('A4:A7', 'B4:B7', 'C4:C7', 'D4:D7', 'F4:AJ4', 'AK4:AL4', 'AK5:AK7', 'AL5:AL7', 'AM4:AQ4', 'AR4:AR7', 'AS4:AS7', 'AT4:AU4', 'AT5:AT7', 'AU5:AU7', 'AV4:AY4', 'AV5:AV7', 'AW5:AY5', 'AW6:AW7', 'AX6:AX7', 'AY6:AY7');
+  for (let i = 0; i < 31; i++) merges.push(`${A(DAYCOL(i))}5:${A(DAYCOL(i))}7`);
+  merges.push('T5:T7'); for (let i = 0; i < 5; i++) merges.push(`${A(38 + i)}5:${A(38 + i)}7`);
+  const dataRow = (cells, tot, r, h) => {
+    const out = [];
+    for (let i = 0; i < 31; i++) {
+      const c = DAYCOL(i); if (i >= n) { out.push(cell(c, '', XF.num)); continue; }
+      const v = cells[i];
+      out.push(typeof v === 'number' ? cell(c, v, XF.num) : cell(c, v || '', XF[v] || XF.code));
+    }
+    const fE = `E${r}:S${r}`, fU = `U${r}:AJ${r}`, fAll = `E${r}:AJ${r}`;
+    out.push(cell(19, tot.h1, XF.num));
+    out.push({ c: 36, v: tot.days, s: XF.num, f: `COUNT(${fE},${fU})` });
+    out.push(cell(37, '', XF.num));
+    COUNT_COLS.forEach(([code], i) => out.push({ c: 38 + i, v: tot.c[code] || 0, s: XF.num, f: `COUNTIF(${fAll},"${code}")` }));
+    out.push(cell(45, '', XF.num), cell(46, '', XF.num));
+    out.push({ c: 47, v: tot.sum, s: XF.num, f: `SUM(${fE},${fU})` });
+    out.push(cell(48, '', XF.num), cell(49, '', XF.num), cell(50, '', XF.num));
+    return out;
+  };
+  const firstData = rows.length + 1;
+  for (const row of M.rows) {
+    const r = rows.length + 1;
+    const head = [cell(0, row.first ? row.num : '', XF.small), cell(1, row.first ? row.emp.name : '', XF.name), cell(2, row.sameTitle && !row.first ? '' : row.pos.title, XF.post), cell(3, row.rate ?? '', XF.small)];
+    push(45, [...head, ...dataRow(row.cells, row.tot, r)]);
+    if (row.first && row.span > 1) { merges.push(`A${r}:A${r + row.span - 1}`, `B${r}:B${r + row.span - 1}`); if (row.sameTitle) merges.push(`C${r}:C${r + row.span - 1}`); }
+  }
+  const lastData = rows.length;
+  const sumRow = (label, from, to, style) => {
+    const out = [cell(0, '', style), cell(1, label, style), cell(2, '', style), cell(3, '', style)];
+    for (let i = 0; i < 31; i++) out.push(cell(DAYCOL(i), '', style));
+    const f = c => from <= to ? `SUM(${A(c)}${from}:${A(c)}${to})` : null;
+    const tot = from <= to ? null : { h1: 0, days: 0, sum: 0, c: {} };
+    out.push({ c: 19, v: 0, s: style, f: f(19) }, { c: 36, v: 0, s: style, f: f(36) }, cell(37, '', style));
+    for (let i = 0; i < 7; i++) out.push({ c: 38 + i, v: 0, s: style, f: f(38 + i) });
+    out.push(cell(45, '', style), cell(46, '', style), { c: 47, v: 0, s: style, f: f(47) }, cell(48, '', style), cell(49, '', style), cell(50, '', style));
+    return out;
+  };
+  const setVals = (cells, tot) => { const m = { 19: tot.h1, 36: tot.days, 47: tot.sum }; COUNT_COLS.forEach(([code], i) => m[38 + i] = tot.c[code] || 0); for (const c of cells) if (c.c in m) c.v = m[c.c]; };
+  const totCells = sumRow('Всього:', firstData, lastData, XF.label); setVals(totCells, M.total);
+  push(39.9, totCells);
+  const bandR = push(39.9, [cell(1, 'Заміна', XF.band)]); merges.push(`B${bandR}:AY${bandR}`);
+  const firstSub = rows.length + 1;
+  const subRowsAll = [...M.subRows];
+  /* два порожні рядки для дописування від руки */
+  for (let k = 0; k < 2; k++) subRowsAll.push({ name: '', label: '', cells: M.dates.map(d => isWorkingDay(d) ? '' : 'ВХ'), tot: { h1: 0, days: 0, sum: 0, c: {} } });
+  for (const sr of subRowsAll) {
+    const r = rows.length + 1;
+    push(39.9, [cell(0, '', XF.small), cell(1, sr.name, XF.name), cell(2, sr.label ? `( ${sr.label} )` : '', XF.post), cell(3, '', XF.small), ...dataRow(sr.cells, sr.tot, r)]);
+  }
+  const lastSub = rows.length;
+  const razCells = sumRow('Разом', firstSub, lastSub, XF.label); setVals(razCells, addTotals(subRowsAll));
+  push(46.2, razCells);
+  push(20, []);
+  const sigR = push(46.2, [cell(1, `${S.sign.deputyTitle}                            ${S.sign.deputyName}`, XF.sig), cell(12, LEGEND_L[0] ? CODE_DESC[LEGEND_L[0]] : '', XF.legend), cell(22, LEGEND_L[0], XF.legendCode), cell(24, CODE_DESC[LEGEND_R[0]], XF.legend), cell(40, LEGEND_R[0], XF.legendCode)]);
+  for (let i = 1; i < 7; i++) {
+    const c = [];
+    if (i === 2) c.push(cell(1, S.sign.directorTitle, XF.sig), cell(6, S.sign.directorName, XF.sig));
+    if (LEGEND_L[i]) c.push(cell(12, CODE_DESC[LEGEND_L[i]], XF.legend), cell(22, LEGEND_L[i], XF.legendCode));
+    if (LEGEND_R[i]) c.push(cell(24, CODE_DESC[LEGEND_R[i]], XF.legend), cell(40, LEGEND_R[i], XF.legendCode));
+    push(46.2, c);
+  }
+  return { name: MONTHS[M.m - 1], rows, merges, widths: SHEET_WIDTHS, printArea: `$A$1:$AY$${rows.length}`, sigR };
+}
+function sheetXml(sh) {
+  const cellXml = (c, r) => {
+    const ref = colName(c.c) + r, st = c.s ? ` s="${c.s}"` : '';
+    if (c.f) return `<c r="${ref}"${st}><f>${xe(c.f)}</f><v>${+c.v || 0}</v></c>`;
+    if (c.v === '' || c.v == null) return `<c r="${ref}"${st}/>`;
+    return typeof c.v === 'number' ? `<c r="${ref}"${st}><v>${c.v}</v></c>` : `<c r="${ref}"${st} t="inlineStr"><is><t xml:space="preserve">${xe(c.v)}</t></is></c>`;
+  };
+  const data = sh.rows.map((row, i) => `<row r="${i + 1}" ht="${row.h}" customHeight="1">${[...row.cells].sort((a, b) => a.c - b.c).map(c => cellXml(c, i + 1)).join('')}</row>`).join('');
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="0"/></sheetPr><dimension ref="A1:AY${sh.rows.length}"/><sheetViews><sheetView workbookViewId="0" zoomScale="30" zoomScaleNormal="30"/></sheetViews><sheetFormatPr defaultRowHeight="13.2"/><cols>` +
+    sh.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('') +
+    `</cols><sheetData>${data}</sheetData><mergeCells count="${sh.merges.length}">${sh.merges.map(m => `<mergeCell ref="${m}"/>`).join('')}</mergeCells><printOptions horizontalCentered="1"/><pageMargins left="0.19685" right="0.19685" top="0.15748" bottom="0.15748" header="0" footer="0"/><pageSetup paperSize="9" scale="27" orientation="portrait"/></worksheet>`;
+}
+function buildXlsx(sheets) {
+  const M = 'http://schemas.openxmlformats.org/', T = M + 'officeDocument/2006/relationships/';
+  const files = [
+    { name: '[Content_Types].xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="${M}package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
+      sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') + '</Types>' },
+    { name: '_rels/.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="${M}package/2006/relationships"><Relationship Id="rId1" Type="${T}officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+    { name: 'xl/workbook.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="${M}spreadsheetml/2006/main" xmlns:r="${M}officeDocument/2006/relationships"><sheets>` +
+      sheets.map((s, i) => `<sheet name="${xe(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets><definedNames>' +
+      sheets.map((s, i) => `<definedName name="_xlnm.Print_Area" localSheetId="${i}">'${xe(s.name)}'!${s.printArea}</definedName>`).join('') + '</definedNames><calcPr fullCalcOnLoad="1"/></workbook>' },
+    { name: 'xl/_rels/workbook.xml.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="${M}package/2006/relationships">` +
+      sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="${T}worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('') +
+      `<Relationship Id="rId${sheets.length + 1}" Type="${T}styles" Target="styles.xml"/></Relationships>` },
+    { name: 'xl/styles.xml', data: stylesXml() }
+  ];
+  sheets.forEach((s, i) => files.push({ name: `xl/worksheets/sheet${i + 1}.xml`, data: sheetXml(s) }));
+  return zip(files, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+}
+function exportMonth() {
+  const M = monthRows(CUR.y, CUR.m);
+  download(buildXlsx([tabelSheet(M)]), `Табель ${MONTHS[CUR.m - 1]} ${CUR.y}.xlsx`);
+  toast('Файл Excel готовий');
+}
+function exportYear() {
+  const y0 = schoolYearOf(CUR.y, CUR.m), sheets = [];
+  for (let k = 0; k < 12; k++) { const m = ((8 + k) % 12) + 1, y = m >= 9 ? y0 : y0 + 1; sheets.push(tabelSheet(monthRows(y, m))); }
+  download(buildXlsx(sheets), `Табель ${y0}-${y0 + 1} н.р.xlsx`);
+  toast('Файл Excel за навчальний рік готовий');
+}
+/* ---------- вигляд ---------- */
+const ICONS = {
+  upload: '<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
+  download: '<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  alert: '<path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/>',
+  sheet: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4M7 14h3M12 14h3M7 17.5h3"/>',
+  people: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.8a3.5 3.5 0 010 6.4M18.5 14.8c1.6.8 2.6 2.5 3 5.2"/>',
+  absent: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6M17 16l4 4M21 16l-4 4"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/>',
+  data: '<ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1.1-1.5 2.2M12 17h.01"/>',
+  right: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  left: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
+  folder: '<path d="M3 6.5A1.5 1.5 0 014.5 5H9l2 2.5h8.5A1.5 1.5 0 0121 9v9.5a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 18.5z"/>',
+  print: '<path d="M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"/>',
+  restore: '<path d="M4 12a8 8 0 108-8 8.2 8.2 0 00-6 2.7M4 4v4h4"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  up: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  down: '<path d="M12 5v14M5 12l7 7 7-7"/>',
+  swap: '<path d="M4 7h12M12 3l4 4-4 4M20 17H8M12 13l-4 4 4 4"/>',
+  excel: '<path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 12l6 6M15 12l-6 6"/>'
+};
+const ic = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
+
+const TABS = ['tabel', 'emp', 'abs', 'cal', 'settings', 'data', 'help'];
+let TAB = 'tabel';
+try { TAB = localStorage.getItem(LS + ':tab') || 'tabel'; } catch (e) {}
+if (!TABS.includes(TAB)) TAB = 'tabel';
+const V = {};
+const Q = { emp: '', abs: '', tabel: '' };
+const searchBox = (k, ph) => `<div class="search"><input data-q="${k}" value="${esc(Q[k])}" placeholder="${esc(ph)}" aria-label="Пошук">${Q[k] ? `<button class="x plain" data-act="clearQ" data-k="${k}" title="Очистити">${ic('x')}</button>` : ''}</div>`;
+const hit = (k, ...p) => !Q[k].trim() || p.filter(Boolean).join(' ').toLowerCase().includes(Q[k].trim().toLowerCase());
+let CALY = CUR.y, ABS_EDIT = null, WIZ = null, POP = null, IMPORT = null, MODAL = null, ABS_FILTER = { ym: '', emp: '' };
+
+/* перемалювати, не втративши прокрутку сторінки й таблиці */
+function keepScroll(fn) {
+  const y = scrollY, w = $('.sheetwrap'), wx = w?.scrollLeft, wy = w?.scrollTop, my = $('#modal')?.scrollTop;
+  fn(); scrollTo(0, y);
+  if (my) $('#modal').scrollTop = my;
+  const w2 = $('.sheetwrap'); if (w2) { w2.scrollLeft = wx || 0; w2.scrollTop = wy || 0; }
+}
+function go(tab) { TAB = tab; closePop(); if (!FIRST) MODAL = null; WIZ = null; try { localStorage.setItem(LS + ':tab', tab); } catch (e) {} render(); scrollTo(0, 0); }
+function renderNav() {
+  const item = (k, icon, title, sub, cls = '') => `<button class="nav ${cls}" data-tab="${k}" aria-current="${k === TAB ? 'page' : 'false'}"><span class="nav-i">${ic(icon)}</span><span class="nav-t"><b>${title}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</span></button>`;
+  const noSub = S.absences.filter(a => needsSubs(a) && (!a.to || a.to >= today())).length;
+  $('#steps').innerHTML =
+    item('tabel', 'sheet', 'Табель', monthName(CUR.y, CUR.m)) +
+    item('emp', 'people', 'Працівники', `${S.employees.filter(e => !e.to).length} ${plural(S.employees.filter(e => !e.to).length, 'працівник', 'працівники', 'працівників')}`) +
+    item('abs', 'absent', 'Відсутності та заміни', noSub ? `${noSub} без заміни` : '', noSub ? 'warn' : '') +
+    item('cal', 'calendar', 'Календар', '') +
+    '<div class="nav-sep"></div>' +
+    item('settings', 'gear', 'Налаштування', '') + item('data', 'data', 'Дані і копії', '') + item('help', 'help', 'Довідка', '');
+  const sl = $('#schoolLbl'), ml = $('#monthLbl');
+  sl.textContent = S.school; sl.title = S.school; ml.textContent = monthName(CUR.y, CUR.m);
+  $('#verLbl').textContent = 'версія ' + VERSION;
+}
+/* закріплене підсвічення: день (клік по числу) і працівник (клік по прізвищу) → перехрестя */
+const PIN = { cols: new Set(), rows: new Set() };
+function applyPins() {
+  const css = [];
+  for (const c of PIN.cols) css.push(`.sheet td[data-c="${c}"]{background:#ffe08a!important}.sheet thead th[data-c="${c}"]{background:#f5b700!important;color:#000!important}`);
+  for (const r of PIN.rows) css.push(`.sheet tr[data-e="${r}"] > td{background:#ffe08a!important}`);
+  for (const c of PIN.cols) for (const r of PIN.rows) css.push(`.sheet tr[data-e="${r}"] > td[data-c="${c}"]{background:#ff9f1c!important;outline:2px solid #b35c00;outline-offset:-2px}`);
+  $('#pinRule').textContent = css.length ? `@media screen{${css.join('')}}` : '';
+}
+/* масштаб табеля на екрані: число або 'w' (по ширині, типово) / 'all' (увесь) */
+let ZOOM = (() => { try { const z = localStorage.getItem(LS + ':zoom'); return z === 'w' || z === 'all' ? z : (+z || 'w'); } catch (e) { return 'w'; } })();
+function zoomValue() { const pg = $('.sheet-page'); return pg ? +(pg.style.zoom || 1) : 1; }
+function applyZoom() {
+  const wrap = $('.sheetwrap'), pg = $('.sheet-page'), tbl = $('table.sheet'); if (!wrap || !pg || !tbl) return;
+  if (wrap.clientWidth < 80) return;   // вкладка прихована або згорнута — не перераховуємо
+  /* таблиця займає все вікно до низу */
+  wrap.style.maxHeight = Math.max(300, innerHeight - wrap.getBoundingClientRect().top - scrollY * 0 - 12) + 'px';
+  const old = zoomValue(), fx = wrap.scrollWidth > wrap.clientWidth ? wrap.scrollLeft / (wrap.scrollWidth - wrap.clientWidth) : 0, fy = wrap.scrollHeight > wrap.clientHeight ? wrap.scrollTop / (wrap.scrollHeight - wrap.clientHeight) : 0;
+  pg.style.zoom = 1;
+  const cs = getComputedStyle(pg), natW = tbl.offsetWidth + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight), natH = pg.offsetHeight;
+  let z = ZOOM;
+  if (ZOOM === 'w' || ZOOM === 'all') { z = (wrap.clientWidth - 2) / natW; if (ZOOM === 'all') z = Math.min(z, (wrap.clientHeight - 2) / natH); }
+  z = Math.max(0.2, Math.min(2.5, z)); pg.style.zoom = z;
+  /* та сама точка лишається на місці після зміни масштабу */
+  wrap.scrollLeft = fx * Math.max(0, wrap.scrollWidth - wrap.clientWidth); wrap.scrollTop = fy * Math.max(0, wrap.scrollHeight - wrap.clientHeight);
+  const lbl = $('#zoomLbl'); if (lbl) lbl.textContent = Math.round(z * 100) + '%';
+}
+function setZoom(z) { ZOOM = z; try { localStorage.setItem(LS + ':zoom', String(z)); } catch (e) {} applyZoom(); $$('.zoomseg [data-z]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.z === String(ZOOM)))); }
+function render() {
+  renderNav();
+  $('#view').innerHTML = (V[TAB] || V.tabel)();
+  if (TAB === 'data') { renderSnaps(); renderDiag(); }
+  document.body.dataset.view = TAB;
+  renderModal(); applyPins(); applyZoom();
+  document.body.dataset.orient = S.print.orientation;
+  $('#pageRule').textContent = `@page{size:A4 ${S.print.orientation};margin:5mm 4mm}`;
+  showSave();
+}
+const pageHead = (title, lead, actions = '') => `<header class="phead"><div><h1>${title}</h1>${lead ? `<p class="lead">${lead}</p>` : ''}</div>${actions ? `<div class="pactions">${actions}</div>` : ''}</header>`;
+const q = t => `<span class="q" title="${esc(t)}" role="img" aria-label="Пояснення">?</span>`;
+const how = (title, ...lines) => `<div class="how"><b>${title}</b>${lines.map(l => `<span>${l}</span>`).join('')}</div>`;
+const codePill = c => `<span class="codepill c-${c}" style="color:#${CODE_COLOR[c] || '000'}">${esc(c)}</span>`;
+const empOptions = (sel, empty = '— оберіть працівника —') => `<option value="">${empty}</option>` + emps().filter(e => !e.to || e.id === sel).map(e => `<option value="${e.id}"${e.id === sel ? ' selected' : ''}>${esc(e.name)}</option>`).join('');
+const codeOptions = sel => ABS_CODES.map(c => `<option value="${c}"${c === sel ? ' selected' : ''}>${c} — ${esc(CODE_DESC[c])}</option>`).join('');
+const DAY = 86400000;
+let lastExport = 0, snoozeUntil = 0;
+function showBanner() {
+  const el = $('#banner'); if (!el) return;
+  const msgs = [], red = [];
+  if (EPHEMERAL) red.push(`${ic('alert')}<span class="grow"><b>Схоже, це приватне вікно (інкогніто).</b> Усе, що ви тут введете, зникне після закриття вікна, а ваші справжні дані тут не видно. Відкрийте програму у звичайному вікні браузера.</span>`);
+  if (hasData() && !FIRST) {
+    if (canDir && !DIR) msgs.push(`${ic('folder')}<span class="grow"><b>Не вибрано папку для автокопій.</b> Якщо очистити дані браузера, усе зникне.</span><button class="btn small primary" data-act="pickDir">Вибрати папку…</button>`);
+    else if (DIR && !dirOk) msgs.push(`${ic('folder')}<span class="grow"><b>Копії в папку «${esc(DIR.name)}» не записуються</b> — браузер просить дозвіл.</span><button class="btn small primary" data-act="reconnectDir">Дозволити</button>`);
+    if (Date.now() > snoozeUntil && Date.now() - lastExport > 7 * DAY)
+      msgs.push(`${ic('download')}<span class="grow"><b>${lastExport ? `Копії файлом не було ${Math.floor((Date.now() - lastExport) / DAY)} дн.` : 'Ще не було жодної копії файлом.'}</b> Збережіть і перешліть її (пошта, Telegram, флешка).</span><button class="btn small primary" data-act="backup">Завантажити копію</button><button class="btn small ghost" data-act="snooze">Нагадати завтра</button>`);
+  }
+  el.hidden = !msgs.length && !red.length;
+  el.innerHTML = red.map(m => `<div class="notice bad noprint">${m}</div>`).join('') + msgs.map(m => `<div class="notice warn noprint">${m}</div>`).join('');
+}
+
+/* ---------- Табель ---------- */
+const monthSelect = () => `<select data-f="cur.m" style="width:auto">${MONTHS.map((n, i) => `<option value="${i + 1}"${i + 1 === CUR.m ? ' selected' : ''}>${n}</option>`).join('')}</select><input type="number" data-f="cur.y" value="${CUR.y}" min="2000" max="2100" style="width:90px">`;
+V.tabel = () => {
+  const M = monthRows(CUR.y, CUR.m);
+  const extra = Object.entries(M.total.c).filter(([c]) => !COUNTED.has(c));
+  return pageHead('Табель', `Таблиця складається сама: графік кожної посади × календар × відсутності. Клацніть клітинку, щоб виправити її вручну.`,
+    `<button class="btn ghost" data-act="prevMonth" title="Попередній місяць">${ic('left')}</button>${monthSelect()}<button class="btn ghost" data-act="nextMonth" title="Наступний місяць">${ic('right')}</button>
+     <button class="btn" data-act="print">${ic('print')} Друк</button><button class="btn" data-act="exportMonth">${ic('excel')} Excel</button><button class="btn ghost" data-act="exportYear" title="Усі 12 місяців навчального року одним файлом">Excel за рік</button>`) +
+  `<div class="toolbar noprint">
+     ${searchBox('tabel', 'Пошук працівника в табелі')}
+     <label class="chk"><input type="checkbox" data-f="print.emptyCols"${S.print.emptyCols ? ' checked' : ''}> Порожні колонки форми</label>
+     <span class="seg"><button data-act="orient" data-v="portrait" aria-pressed="${S.print.orientation === 'portrait'}">Книжкова</button><button data-act="orient" data-v="landscape" aria-pressed="${S.print.orientation === 'landscape'}">Альбомна</button></span>
+     <span class="sp"></span>
+     <span class="seg zoomseg" title="Масштаб табеля на екрані (також Ctrl + коліщатко миші над таблицею)"><button data-act="zoomOut">−</button><button data-act="zoom100" id="zoomLbl" title="Поточний масштаб; натисніть — 100 %">100%</button><button data-act="zoomIn">+</button><button data-act="zoomSet" data-z="w" aria-pressed="${ZOOM === 'w'}">По ширині</button><button data-act="zoomSet" data-z="all" aria-pressed="${ZOOM === 'all'}">Увесь табель</button></span>
+     ${PIN.cols.size + PIN.rows.size ? `<button class="btn small" data-act="pinClear">${ic('x')} Зняти підсвічення</button>` : ''}
+     <span class="hint">Днів явок: <b>${M.total.days}</b> · Годин: <b>${fmt(M.total.sum)}</b> · Робочих днів у місяці: <b>${M.dates.filter(isWorkingDay).length}</b></span>
+     <button class="btn small" data-act="addSubRow">${ic('plus')} Рядок заміни</button>
+   </div>
+   <section class="card" style="padding:0;overflow:hidden">${sheetHtml(M)}</section>
+   ${extra.length ? `<div class="extra-codes noprint">Коди без окремої колонки у формі (у підсумки не входять): ${extra.map(([c, n]) => `${codePill(c)} ${n} ${plural(n, 'день', 'дні', 'днів')}`).join(' ')}</div>` : ''}`;
+};
+function sheetHtml(M) {
+  const n = M.dates.length, EC = S.print.emptyCols, WE = M.dates.map(d => !isWorkingDay(d));
+  const cellHtml = (v, attrs, cls = '') => {
+    if (typeof v === 'number') return `<td class="d ${cls}${v === 0 ? ' z' : ''}" ${attrs}>${fmt(v)}</td>`;
+    return `<td class="d ${cls} ${v ? 'c-' + esc(v) : ''}" ${attrs}>${esc(v)}</td>`;
+  };
+  const dayCells = (cells, key, kind) => {
+    let h = '';
+    for (let i = 0; i < 31; i++) {
+      if (i === 15) h += `<td class="t">${kind ? '' : ''}</td>`;
+      if (i >= n) { h += `<td class="s" data-c="${i}"></td>`; continue; }
+      const s = M.dates[i], ovr = kind === 'cell' && (key + '|' + s) in S.overrides;
+      h += cellHtml(cells[i], `data-${kind}="${key}|${s}" data-c="${i}"`, (ovr ? 'ovr' : '') + (WE[i] ? ' we' : ''));
+    }
+    return h;
+  };
+  const totCells = (tot, extraFirst) => `<td class="s sf">${tot.days}</td>${EC ? '<td class="empty-col"></td>' : ''}` + COUNT_COLS.map(([c]) => `<td class="s${tot.c[c] ? '' : ' z'}">${tot.c[c] || 0}</td>`).join('') + (EC ? '<td class="empty-col"></td><td class="empty-col"></td>' : '') + `<td class="s last">${fmt(tot.sum)}</td>` + (EC ? '<td class="empty-col"></td><td class="empty-col"></td><td class="empty-col"></td>' : '');
+  const fixT = (h, tot) => h.replace('<td class="t"></td>', `<td class="t">${fmt(tot.h1)}</td>`);
+  const cols = `<colgroup><col class="cn"><col class="cname"><col class="cpost"><col class="crate">${'<col class="cd">'.repeat(15)}<col class="ct">${'<col class="cd">'.repeat(16)}<col class="cs">${EC ? '<col class="ce">' : ''}${'<col class="cs">'.repeat(7)}${EC ? '<col class="ce"><col class="ce">' : ''}<col class="cs">${EC ? '<col class="ce"><col class="ce"><col class="ce">' : ''}</colgroup>`;
+  const R3 = EC ? 3 : 2;
+  const head = `<thead>
+    <tr><th rowspan="${R3}" class="sticky1">№ п/п</th><th rowspan="${R3}" class="sticky2">Прізвище, ім’я та по батькові</th><th rowspan="${R3}">Професія, посада</th><th rowspan="${R3}">Розряд, ставка</th><th colspan="32">Дні місяця</th><th colspan="${EC ? 2 : 1}">Дні явок</th><th colspan="5">Неявки (л-днів)</th><th rowspan="${R3}" class="rot"><span>Прогули</span></th><th rowspan="${R3}" class="rot"><span>Вихідні та святкові</span></th>${EC ? '<th colspan="2" class="empty-col">Недопрацьовані год</th>' : ''}<th colspan="${EC ? 4 : 1}">Відпрацьовано годин</th></tr>
+    <tr>${Array.from({ length: 15 }, (_, i) => `<th rowspan="${R3 - 1}" class="dn${WE[i] ? ' we' : ''}" data-c="${i}" data-act="pinCol" data-i="${i}" title="Натисніть, щоб закріпити підсвічення цього дня">${i + 1}</th>`).join('')}<th rowspan="${R3 - 1}" class="rot tcol"><span>разом за І пол</span></th>${Array.from({ length: 16 }, (_, i) => `<th rowspan="${R3 - 1}" class="dn${WE[i + 15] ? ' we' : ''}" data-c="${i + 15}" data-act="pinCol" data-i="${i + 15}" title="Натисніть, щоб закріпити підсвічення цього дня">${i + 16 <= n ? i + 16 : ''}</th>`).join('')}<th rowspan="${R3 - 1}" class="rot"><span>фактич. роботи</span></th>${EC ? '<th rowspan="${R3 - 1}" class="rot empty-col"><span>цілозм. простої</span></th>' : ''}${COUNT_COLS.slice(0, 5).map(([, t]) => `<th rowspan="${R3 - 1}" class="rot"><span>${t}</span></th>`).join('')}${EC ? '<th rowspan="${R3 - 1}" class="rot empty-col"><span>плинність простоїв</span></th><th rowspan="${R3 - 1}" class="rot empty-col"><span>всього годин</span></th>' : ''}<th rowspan="${R3 - 1}" class="rot"><span>Всього</span></th>${EC ? '<th colspan="3" class="empty-col">З них</th>' : ''}</tr>
+    ${EC ? '<tr><th class="rot empty-col"><span>нічні</span></th><th class="empty-col"></th><th class="rot empty-col"><span>вечірні</span></th></tr>' : ''}</thead>`;
+  let body = '';
+  /* пошук: лишаємо всі рядки знайденого працівника (обидві посади) */
+  const found = Q.tabel.trim() ? new Set(M.rows.filter(r => hit('tabel', r.emp.name, ...r.emp.positions.map(x => x.title))).map(r => r.emp.id)) : null;
+  for (const r of M.rows) {
+    if (found && !found.has(r.emp.id)) continue;
+    const rs = r.span > 1 ? ` rowspan="${r.span}"` : '';
+    body += `<tr data-e="${r.emp.id}"${r.emp.order % 2 ? '' : ' class="alt"'}>` + (r.first ? `<td class="n sticky1"${rs}>${r.num}</td><td class="name l sticky2"${rs} data-act="pinRow" data-id="${r.emp.id}" title="Натисніть, щоб закріпити підсвічення рядка">${esc(r.emp.name)}</td>` : '') +
+      (r.first || !r.sameTitle ? `<td class="post l"${r.sameTitle ? rs : ''}>${esc(r.pos.title)}</td>` : '') +
+      `<td class="rate">${r.rate != null ? fmt(r.rate) : ''}</td>` + fixT(dayCells(r.cells, r.pos.id, 'cell'), r.tot) + totCells(r.tot) + '</tr>';
+  }
+  const sumRow = (label, tot, cls) => `<tr class="${cls}"><td class="sticky1"></td><td class="l sticky2">${label}</td><td></td><td></td>${Array.from({ length: 15 }, (_, i) => `<td data-c="${i}"></td>`).join('')}<td class="t">${fmt(tot.h1)}</td>${Array.from({ length: 16 }, (_, i) => `<td data-c="${i + 15}"></td>`).join('')}${totCells(tot)}</tr>`;
+  body += sumRow('Всього:', M.total, 'total');
+  const ncols = 4 + 32 + 1 + (EC ? 1 : 0) + 7 + (EC ? 2 : 0) + 1 + (EC ? 3 : 0);
+  body += `<tr class="band"><td colspan="${ncols}">Заміна</td></tr>`;
+  for (const r of M.subRows) {
+    if (found && !hit('tabel', r.name, r.label)) continue;
+    body += `<tr data-e="s${r.sub.id}"><td class="sticky1"></td><td class="name l sticky2">${esc(r.name)}</td><td class="sublbl">${r.label ? '( ' + esc(r.label) + ' )' : ''}</td><td></td>` + fixT(dayCells(r.cells, r.sub.id, 'sub'), r.tot) + totCells(r.tot) + '</tr>';
+  }
+  if (!M.subRows.length) body += `<tr><td class="sticky1"></td><td class="name l sticky2 muted" style="font-weight:400">— замін немає —</td><td></td><td></td>${'<td></td>'.repeat(32)}${totCells({ days: 0, sum: 0, h1: 0, c: {} })}</tr>`;
+  body += sumRow('Разом', M.subTotal, 'razom');
+  const leg = (codes, i) => codes[i] ? `<td>${esc(CODE_DESC[codes[i]])}</td><td class="code">${codes[i]}</td>` : '<td></td><td></td>';
+  const foot = `<div class="sheet-foot"><div class="sig"><span>${esc(S.sign.deputyTitle)} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${esc(S.sign.deputyName)}</span></div><div class="sig"><span>${esc(S.sign.directorTitle)} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${esc(S.sign.directorName)}</span></div>
+    <table>${LEGEND_L.map((_, i) => `<tr>${leg(LEGEND_L, i)}</tr>`).join('')}</table><table>${LEGEND_L.map((_, i) => `<tr>${leg(LEGEND_R, i)}</tr>`).join('')}</table></div>`;
+  const W = { cn: 2.1, cname: 12.4, cpost: 8.6, crate: 3, cd: 1.72, ct: 2.2, cs: 2.05, ce: 1.2 }, wsum = W.cn + W.cname + W.cpost + W.crate + 31 * W.cd + W.ct + 9 * W.cs + (EC ? 6 * W.ce : 0);
+  const nrows = (found ? [...M.rows].filter(r => found.has(r.emp.id)).length : M.rows.length) + Math.max(1, M.subRows.length) + 3, land = S.print.orientation === 'landscape';
+  const rh = land ? 3.2 : Math.max(2.15, Math.min(3.6, 216 / nrows)), fs = land ? 7 : Math.min(7.6, rh * 2.2);
+  const vars = Object.entries(W).map(([k, v]) => `--w-${k}:${(v / wsum * 100).toFixed(3)}%`).join(';') + `;--rh:${rh.toFixed(2)}mm;--fs:${fs.toFixed(2)}pt;--fh:${(fs * 0.8).toFixed(2)}pt;--fn:${(fs * 0.98).toFixed(2)}pt;--fp:${(fs * 0.8).toFixed(2)}pt;--rot:${land ? 18 : 16}mm`;
+  return `<div class="sheetwrap"><div class="sheet-page" data-cols="${ncols}" style="${vars}">
+    <div class="sheet-head"><div>Підприємство: ${esc(S.school)}</div><div><div class="t1">Т А Б Е Л Ь</div><div class="t2">використання робочого часу за ${MONTHS[M.m - 1]} ${M.y} року</div></div></div>
+    <table class="sheet">${cols}${head}<tbody>${body}</tbody></table>${foot}</div></div>`;
+}
+/* вікно клітинки — модалка по центру екрана */
+function openPop(td) {
+  const [kind, key, date] = td.dataset.cell ? ['cell', ...td.dataset.cell.split('|')] : ['sub', ...td.dataset.sub.split('|')];
+  POP = { kind, key, date }; MODAL = { type: 'cell' }; renderModal();
+  setTimeout(() => { const i = $('#popH'); if (i) { i.focus(); i.select(); } }, 0);
+}
+function closePop() { POP = null; if (MODAL?.type === 'cell') { MODAL = null; renderModal(); } }
+const subDaysText = s => Object.keys(s.days).sort().map(d => `${fmtDM(d)} — ${fmt(s.days[d])}`).join(', ');
+/* блок «відсутність + хто заміняє» для вікна клітинки */
+function absBoxHtml(a, date) {
+  const subs = subsOfAbs(a), canSub = !LONG_CODES.has(a.code) && subDates(a).length;
+  return `<div class="absbox"><div>${codePill(a.code)} <b>${esc(CODE_DESC[a.code] || '')}</b></div>
+    <div class="who">Період: <b>${fmtD(a.from)} – ${a.to ? fmtD(a.to) : 'безстроково'}</b>${a.note ? ' · ' + esc(a.note) : ''}</div>
+    ${subs.length ? `<div class="who">Заміняють:<ul class="sublist">${subs.map(s => `<li><b>${esc(subName(s))}</b>: ${subDaysText(s) || 'години ще не вписано'}${subHours(s) ? ` <span class="muted">(разом ${fmt(subHours(s))} год)</span>` : ''}</li>`).join('')}</ul></div>` : canSub ? '<div class="who warn">Замін ще немає.</div>' : ''}
+    <div class="row">${canSub ? `<button class="btn small" data-act="cellWizard" data-id="${a.id}">${ic('swap')} Заміни…</button>` : ''}<button class="btn small" data-act="absEditModal" data-id="${a.id}">Змінити період…</button>
+      <button class="btn small" data-act="absEndBefore" data-id="${a.id}" data-d="${date}" title="Відсутність закінчиться напередодні; з ${fmtD(date)} знову години за графіком">Вийшов(ла) з ${fmtDM(date)}</button>
+      <button class="btn small danger" data-act="delAbs" data-id="${a.id}">${ic('trash')} Видалити відсутність</button></div></div>`;
+}
+function cellModalHtml() {
+  const { kind, key, date } = POP, wdTxt = `${fmtD(date)}, ${WD_FULL[dow(date)]}`;
+  const close = `<button class="x plain" data-act="popClose" title="Закрити (Esc)">${ic('x')}</button>`;
+  if (kind === 'cell') {
+    const [emp, pos] = findPos(key); if (!emp) return '';
+    const cur = cellValue(emp, pos, date), isOvr = (key + '|' + date) in S.overrides, a = absAt(emp.id, date);
+    const asSub = S.subs.filter(s => s.empId === emp.id && date in s.days);
+    return `<div class="mbox center" style="width:min(640px,100%)"><header><h2>${esc(emp.name)}${pos.title ? ' · ' + esc(pos.title) : ''}</h2><span class="sp"></span>${close}</header>
+      <div class="hint">${wdTxt} · ${esc(cellWhy(emp, pos, date))}</div>
+      ${a ? absBoxHtml(a, date) : ''}
+      ${asSub.length ? `<div class="hint">Цього дня сам(а) заміняє: ${asSub.map(s => `${esc(s.forLabel)} — <b>${fmt(s.days[date])} год</b>`).join('; ')}</div>` : ''}
+      <div class="row"><label class="field" style="flex:1">Годин у цей день (ручна правка однієї клітинки)<input type="number" step="0.5" min="0" id="popH" value="${typeof cur === 'number' ? cur : ''}"></label><button class="btn primary" data-act="popSet">Записати</button></div>
+      <div class="field">Або мітка — відсутність (далі спитає період)<div class="codes cellpop" style="position:static;box-shadow:none;border:0;padding:0;min-width:0;flex-direction:row;flex-wrap:wrap">${CODES.map(([c]) => `<button class="btn small" data-act="popCode" data-v="${c}" title="${esc(CODE_DESC[c])}" style="color:#${CODE_COLOR[c] || '000'};font-family:'Times New Roman',serif;min-width:44px">${c}</button>`).join('')}<button class="btn small" data-act="popBlank" title="Порожня клітинка">∅</button></div></div>
+      <div class="row"><button class="btn small ghost" data-act="popReset"${isOvr ? '' : ' disabled'}>${ic('restore')} Прибрати ручну правку</button><span class="sp"></span><button class="btn small ghost" data-act="popClose">Закрити</button></div></div>`;
+  }
+  const sub = byId(S.subs, key); if (!sub) return '';
+  const a = sub.absId && byId(S.absences, sub.absId), lim = a ? absPlanned(a, date) : null, used = a ? subHoursOn(a.id, date, sub) : 0;
+  return `<div class="mbox center" style="width:min(560px,100%)"><header><h2>${esc(subName(sub))} <span class="muted" style="font-weight:400">${esc(sub.forLabel)}</span></h2><span class="sp"></span>${close}</header>
+    <div class="hint">${wdTxt}${isWorkingDay(date) ? '' : ' · вихідний'}${a ? ` · у відсутнього за графіком ${fmt(lim)} год, інші заміни ${fmt(used)}, можна ще ${fmt(Math.max(0, lim - used))}` : ''}</div>
+    <div class="hint">Уже вписано: ${subDaysText(sub) || 'нічого'}</div>
+    <div class="row"><label class="field" style="flex:1">Годин заміни<input type="number" step="0.5" min="0" id="popH" value="${sub.days[date] ?? ''}"></label><button class="btn primary" data-act="popSet">Записати</button></div>
+    <div class="row"><button class="btn small ghost" data-act="popBlank">Прибрати години цього дня</button><span class="sp"></span><button class="btn small ghost" data-act="popClose">Закрити</button></div></div>`;
+}
+function popApply(v) {
+  if (!POP) return;
+  if (POP.kind === 'cell') { if (v === undefined) delete S.overrides[POP.key + '|' + POP.date]; else S.overrides[POP.key + '|' + POP.date] = v; }
+  else {
+    const sub = byId(S.subs, POP.key); if (!sub) return;
+    if (v === undefined || v === '' || typeof v !== 'number') delete sub.days[POP.date];
+    else {
+      const a = sub.absId && byId(S.absences, sub.absId);
+      if (a) { const lim = absPlanned(a, POP.date), used = subHoursOn(a.id, POP.date, sub); if (used + v > lim + 1e-9) return toast(`Ліміт: у відсутнього за графіком ${fmt(lim)} год, інші заміни вже ${fmt(used)} — можна не більше ${fmt(Math.max(0, lim - used))}`); }
+      sub.days[POP.date] = v;
+    }
+  }
+  POP = null; MODAL = null; save(true); keepScroll(render);
+}
+
+/* ---------- Працівники ---------- */
+const patSum = p => (p || []).reduce((a, v) => a + (+v || 0), 0);
+function posHtml(e, p) {
+  const l = lastLoad(p), pat = l?.pattern, hist = [...p.loads].sort((a, b) => a.from.localeCompare(b.from));
+  const sum = patSum(pat), rate = l?.rate;
+  return `<div class="row" style="align-items:center;gap:8px 14px;padding:6px 0;border-top:1px solid var(--line)">
+    <label class="field" style="flex:1 1 170px">Посада<input data-f="pos.title" data-id="${p.id}" value="${esc(p.title)}" list="posTitles" placeholder="${e.positions[0] !== p ? 'та сама посада (уроки)' : 'посада'}"></label>
+    <label class="field xs" style="flex:0 0 80px">Ставка, год<input type="number" step="0.5" min="0" data-f="pos.rate" data-id="${p.id}" value="${rate ?? ''}"></label>
+    <div class="field" style="flex:0 0 auto">Графік на тиждень, год ${q('Скільки годин у кожен день тижня. Ці числа підставляються в табель у робочі дні.')}<div class="pat">${WD.slice(0, 5).map((w, i) => `<span><input type="number" step="0.5" min="0" data-f="pos.pat" data-id="${p.id}" data-wd="${i}" value="${pat && pat[i] != null ? pat[i] : ''}"><small>${w}</small></span>`).join('')}</div></div>
+    <div class="field" style="flex:0 0 auto">Разом<div><span class="pill ${rate != null && Math.abs(sum - rate) > 0.01 ? 'warn' : sum ? 'ok' : ''}" title="${rate != null && Math.abs(sum - rate) > 0.01 ? 'Сума графіка не збігається зі ставкою — так буває (гуртки, індивідуальне навчання); табель бере графік' : ''}">${fmt(sum)} год</span></div></div>
+    <div class="field" style="flex:0 0 auto">Діє з<div class="row" style="gap:4px"><span class="pill blue" title="Графік діє з цієї дати; попередні місяці рахуються за старим графіком">${fmtD(l?.from)}</span><button class="btn small ghost" data-act="patFrom" data-id="${p.id}" title="Записати новий графік з певної дати, зберігши старий для минулих місяців">Змінити з дати…</button></div></div>
+    <div style="flex:0 0 auto;display:flex;gap:2px;align-items:center;margin-left:auto">
+      ${hist.length > 1 ? `<details style="font-size:12.5px"><summary class="muted" style="cursor:pointer">історія (${hist.length})</summary>${hist.map(h => `<div>з ${fmtD(h.from)}: ${(h.pattern || []).map(fmt).join(' ') || '—'} (ставка ${h.rate ?? '—'}) <button class="x plain" data-act="loadDel" data-id="${p.id}" data-from="${h.from}" title="Видалити цей запис графіка">${ic('x')}</button></div>`).join('')}</details>` : ''}
+      ${p.to ? `<span class="pill bad">закрита ${fmtD(p.to)}</span><button class="btn small ghost" data-act="posReopen" data-id="${p.id}">Відкрити</button>` : `<button class="btn small ghost" data-act="posClose" data-id="${p.id}" title="Закрити посаду з дати (рядок зникне з наступних місяців)">Закрити…</button>`}
+      <button class="x" data-act="delPos" data-id="${p.id}" title="Видалити посаду">${ic('trash')}</button>
+    </div></div>`;
+}
+V.emp = () => {
+  const list = emps().filter(e => hit('emp', e.name, ...e.positions.map(p => p.title)));
+  const rows = list.map((e, i) => e.positions.map((p, j) => {
+    const l = lastLoad(p), pat = l?.pattern, sum = patSum(pat), rate = l?.rate, rs = e.positions.length > 1 ? ` rowspan="${e.positions.length}"` : '';
+    const gone = e.to || p.to;
+    return `<tr class="${j ? '' : 'first'}${gone ? ' gone' : ''}">` +
+      (j ? '' : `<td class="num"${rs}>${e.order}</td><td class="nm"${rs}><input data-f="emp.name" data-id="${e.id}" value="${esc(e.name)}">${e.to ? `<span class="cellsub bad">не працює з ${fmtD(e.to)}</span>` : ''}</td>`) +
+      `<td class="ti"><input data-f="pos.title" data-id="${p.id}" value="${esc(p.title)}" list="posTitles" placeholder="${j ? 'та сама посада (уроки)' : 'посада'}">${p.to ? `<span class="cellsub bad">закрита ${fmtD(p.to)}</span>` : ''}</td>
+       <td class="c"><input class="rate" type="number" step="0.5" min="0" data-f="pos.rate" data-id="${p.id}" value="${rate ?? ''}"></td>
+       ${[0, 1, 2, 3, 4].map(w => `<td class="c"><input class="p" type="number" step="0.5" min="0" data-f="pos.pat" data-id="${p.id}" data-wd="${w}" value="${pat && pat[w] != null ? pat[w] : ''}"></td>`).join('')}
+       <td class="c"><span class="pill ${rate != null && Math.abs(sum - rate) > 0.01 ? 'warn' : sum ? 'ok' : ''}" title="${rate != null && Math.abs(sum - rate) > 0.01 ? 'Сума графіка не збігається зі ставкою — так буває; табель бере графік' : 'сума графіка за тиждень'}">${fmt(sum)}</span></td>
+       <td class="num muted" title="Графік діє з цієї дати">${fmtDM(l?.from)}${p.loads.length > 1 ? ' ·' + p.loads.length : ''}</td>` +
+      (j ? '' : `<td${rs} style="white-space:nowrap;text-align:right"><button class="x plain" data-act="empUp" data-id="${e.id}" title="Вище"${i === 0 ? ' disabled' : ''}>${ic('up')}</button><button class="x plain" data-act="empDown" data-id="${e.id}" title="Нижче"${i === list.length - 1 ? ' disabled' : ''}>${ic('down')}</button> <button class="btn small" data-act="empCard" data-id="${e.id}" title="Дати прийняття/звільнення, зміна графіка з дати, посади, видалення">Картка</button></td>`) + '</tr>';
+  }).join('')).join('');
+  return pageHead('Працівники', 'Години по днях тижня правляться прямо в таблиці — з них складається табель кожного місяця. Усе інше (прийнято/звільнено, зміна графіка з дати, посади) — у «Картці».',
+    `<button class="btn primary" data-act="empAddOpen">${ic('plus')} Додати працівника</button><button class="btn" data-act="newYear" title="Зафіксувати поточні графіки з 1 вересня нового навчального року: далі змінюйте їх, не зачіпаючи минулі місяці">${ic('calendar')} Новий навчальний рік…</button>`) +
+  posTitlesList() + `<div class="toolbar">${searchBox('emp', 'Пошук за прізвищем або посадою')}<span class="sp"></span><span class="hint">${list.length} з ${S.employees.length}</span></div>
+   <div class="tblwrap"><table class="tbl emp"><thead><tr><th class="num">№</th><th>Прізвище, ініціали</th><th>Посада</th><th class="c">Ставка</th><th class="c">Пн</th><th class="c">Вт</th><th class="c">Ср</th><th class="c">Чт</th><th class="c">Пт</th><th class="c">Разом</th><th class="num">Діє з</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="12" class="muted">Нікого не знайдено</td></tr>'}</tbody></table></div>`;
+};
+const posTitlesList = () => `<datalist id="posTitles">${[...new Set(S.employees.flatMap(e => e.positions.map(p => p.title)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'uk')).map(t => `<option value="${esc(t)}">`).join('')}</datalist>`;
+function empCardHtml() {
+  const e = byId(S.employees, MODAL.id); if (!e) { MODAL = null; return ''; }
+  const abs = S.absences.filter(a => a.empId === e.id).sort((a, b) => b.from.localeCompare(a.from));
+  return `<div class="mbox"><header><h2>Картка працівника</h2><span class="sp"></span><button class="x plain" data-act="modalClose" title="Закрити">${ic('x')}</button></header>
+    <div class="row"><label class="field">Прізвище, ініціали<input data-f="emp.name" data-id="${e.id}" value="${esc(e.name)}"></label><label class="field s" style="flex:0 0 160px">Прийнято<input type="date" data-f="emp.from" data-id="${e.id}" value="${e.from || ''}"></label><label class="field s" style="flex:0 0 160px">Звільнено (останній день)<input type="date" data-f="emp.to" data-id="${e.id}" value="${e.to || ''}"></label></div>
+    <p class="hint">Звільненого не видаляйте — поставте дату: у наступних місяцях рядок зникне, а минулі лишаться правильними.</p>
+    ${e.positions.map(p => posHtml(e, p)).join('')}
+    <div class="row"><button class="btn small" data-act="addPos" data-id="${e.id}">${ic('plus')} Ще одна посада</button></div>
+    ${abs.length ? `<div class="field">Відсутності<div>${abs.map(a => `${codePill(a.code)} ${fmtD(a.from)} – ${a.to ? fmtD(a.to) : 'безстроково'} <button class="btn small ghost" data-act="absEditModal" data-id="${a.id}">змінити</button> <button class="x" data-act="delAbs" data-id="${a.id}" title="Видалити відсутність">${ic('trash')}</button>`).join('<br>')}</div></div>` : ''}
+    <div class="row"><button class="btn danger" data-act="delEmp" data-id="${e.id}">${ic('trash')} Видалити працівника</button><span class="sp"></span><button class="btn primary" data-act="modalClose">Готово</button></div></div>`;
+}
+function empAddHtml() {
+  return `<div class="mbox center" style="width:min(720px,100%)"><header><h2>Новий працівник</h2><span class="sp"></span><button class="x plain" data-act="modalClose" title="Закрити">${ic('x')}</button></header>
+    <div class="row"><label class="field">Прізвище та ініціали<input id="newName" placeholder="Іваненко І.І."></label><label class="field">Посада<input id="newTitle" list="posTitles" placeholder="вч.математики"></label></div>
+    <div class="row"><label class="field xs" style="flex:0 0 110px">Ставка, год<input id="newRate" type="number" step="0.5" min="0"></label><label class="field s" style="flex:0 0 170px">Працює з<input id="newFrom" type="date" value="${iso(CUR.y, CUR.m, 1)}"></label>
+      <div class="field" style="flex:0 0 auto">Години по днях тижня<div class="pat">${WD.slice(0, 5).map((w, i) => `<span><input type="number" step="0.5" min="0" id="newP${i}"><small>${w}</small></span>`).join('')}</div></div></div>
+    <p class="hint">До дати «Працює з» клітинки в табелі будуть порожні. Години по днях можна вписати й пізніше в таблиці.</p>
+    <div class="row"><button class="btn primary" data-act="addEmp">${ic('plus')} Додати</button><button class="btn ghost" data-act="modalClose">Скасувати</button></div></div>`;
+}
+
+/* ---------- Відсутності та заміни ---------- */
+V.abs = () => {
+  const ym = ABS_FILTER.ym || iso(CUR.y, CUR.m, 1).slice(0, 7);
+  const first = ym + '-01', last = ym + '-' + String(daysIn(+ym.slice(0, 4), +ym.slice(5))).padStart(2, '0');
+  const list = S.absences.filter(a => a.from <= last && (!a.to || a.to >= first)).filter(a => !ABS_FILTER.emp || a.empId === ABS_FILTER.emp)
+    .map(a => ({ a, e: byId(S.employees, a.empId) })).filter(x => x.e && hit('abs', x.e.name, x.a.code)).sort((x, y) => x.a.from.localeCompare(y.a.from) || x.e.order - y.e.order);
+  const ed = ABS_EDIT ? byId(S.absences, ABS_EDIT) : null;
+  const form = `<section class="card"><header><h2>${ed ? 'Змінити відсутність' : 'Нова відсутність'}</h2>${ed ? `<button class="btn small ghost" data-act="absCancel">Скасувати</button>` : ''}</header>
+    <div class="row"><label class="field">Працівник<select id="absEmp">${empOptions(ed?.empId)}</select></label>
+      <label class="field">Код<select id="absCode">${codeOptions(ed?.code || 'ТН')}</select></label>
+      <label class="field s">З<input type="date" id="absFrom" value="${ed?.from || iso(CUR.y, CUR.m, 1)}"></label>
+      <label class="field s">По<input type="date" id="absTo" value="${ed?.to || ''}"></label>
+      <label class="chk" style="padding-bottom:8px"><input type="checkbox" id="absOpen"${ed ? (ed.to ? '' : ' checked') : ''}> безстроково</label>
+      <label class="field">Примітка<input id="absNote" value="${esc(ed?.note || '')}"></label>
+      <button class="btn primary" data-act="saveAbs">${ed ? 'Зберегти' : ic('plus') + ' Додати'}</button></div>
+    <p class="hint">Код проставляється у всі дні періоду, включно з вихідними (як у табелі школи). Для ВП, ДД, М зазвичай «безстроково»; замін вони не потребують — на це місце береться інша людина. Для решти відсутностей у навчальному році програма одразу запропонує вписати заміни по днях.</p></section>`;
+  const rows = list.map(({ a, e }) => {
+    const subs = subsOfAbs(a), need = needsSubs(a), days = subDates(a).length;
+    const over = subDates(a).filter(d => subHoursOn(a.id, d.date) > d.planned + 1e-9).map(d => fmtDM(d.date));
+    return `<tr class="${need ? 'warnrow' : ''}"><td class="cellname">${esc(e.name)}</td><td>${codePill(a.code)} <span class="cellsub">${esc(CODE_DESC[a.code] || '')}</span></td><td class="num">${fmtD(a.from)} – ${a.to ? fmtD(a.to) : '…'}</td><td class="num">${days || ''}</td>
+      <td>${subs.length ? subs.map(s => `${esc(subName(s))}: <b>${fmt(subHours(s))}</b> год`).join('<br>') : need ? '<span class="pill warn">без заміни</span>' : '<span class="muted">—</span>'}${over.length ? `<br><span class="pill bad" title="Замін більше, ніж годин у відсутнього за графіком">перевищено: ${over.join(', ')}</span>` : ''}</td>
+      <td style="white-space:nowrap;text-align:right">${days ? `<button class="btn small" data-act="absWizard" data-id="${a.id}">${ic('swap')} Заміни…</button> ` : ''}<button class="btn small ghost" data-act="editAbs" data-id="${a.id}">Змінити</button> <button class="x" data-act="delAbs" data-id="${a.id}" title="Видалити">${ic('trash')}</button></td></tr>`;
+  }).join('');
+  const subsM = monthRows(+ym.slice(0, 4), +ym.slice(5)).subRows;
+  return pageHead('Відсутності та заміни', 'Лікарняні, відпустки, декрети — з датами. Заміни вписуються по днях і показуються під табелем у блоці «Заміна».') + form +
+  `<section class="card"><header><h2>Відсутності</h2><span class="sp"></span>${searchBox('abs', 'Пошук')}<input type="month" data-f="abs.ym" value="${ym}" style="width:auto"><select data-f="abs.emp" style="width:auto">${empOptions(ABS_FILTER.emp, '— усі працівники —')}</select></header>
+    ${rows ? `<div class="tblwrap"><table class="tbl"><thead><tr><th>Працівник</th><th>Код</th><th class="num">Період</th><th class="num" title="Робочі дні з уроками в навчальному році">Днів для заміни</th><th>Заміни</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">У цьому місяці відсутностей немає.</p>'}
+  </section>
+  <section class="card"><header><h2>Рядки блоку «Заміна» за ${MONTHS[+ym.slice(5) - 1]} ${ym.slice(0, 4)}</h2><span class="sp"></span><button class="btn small" data-act="addSubRow">${ic('plus')} Рядок заміни</button></header>
+    <p class="sub">Години по днях правляться клацанням по клітинках у табелі. Підпис у дужках можна виправити.</p>
+    ${subsM.length ? `<div class="tblwrap"><table class="tbl"><thead><tr><th>Хто заміняє</th><th>Підпис (замість кого)</th><th class="num">Днів</th><th class="num">Годин</th><th></th></tr></thead><tbody>${subsM.map(r => `<tr><td class="cellname">${esc(r.name)}</td><td><input data-f="sub.forLabel" data-id="${r.sub.id}" value="${esc(r.sub.forLabel)}"></td><td class="num">${r.tot.days}</td><td class="num">${fmt(r.tot.sum)}</td><td style="text-align:right"><button class="x" data-act="delSub" data-id="${r.sub.id}" title="Видалити рядок">${ic('trash')}</button></td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Рядків замін немає.</p>'}
+  </section>`;
+};
+function startWizard(a) {
+  const dates = subDates(a), old = subsOfAbs(a);
+  if (!dates.length) { WIZ = null; return toast('У цій відсутності немає робочих днів з уроками'); }
+  WIZ = { absId: a.id, rows: dates.map(d => ({ date: d.date, planned: d.planned, items: old.filter(s => d.date in s.days).map(s => ({ empId: s.empId || '', name: s.subName || '', h: s.days[d.date] })) })) };
+  ABS_EDIT = null; MODAL = { type: 'wiz' }; render();
+}
+/* завантаженість кандидата в день: свої години + вже записані заміни (крім цієї відсутності) */
+function candLoad(empId, date, exceptAbsId) {
+  const e = byId(S.employees, empId); if (!e) return null;
+  const abs = absAt(e.id, date), own = abs ? 0 : lessonHours(e, date);
+  const subs = S.subs.filter(s => s.empId === e.id && s.absId !== exceptAbsId).reduce((x, s) => x + (+s.days[date] || 0), 0);
+  return { own, subs, abs };
+}
+const sameSubject = (a, b) => { const t = new Set(a.positions.map(p => normName(p.title)).filter(Boolean)); return b.positions.some(p => t.has(normName(p.title))); };
+function candOptions(absEmp, date, sel) {
+  const all = emps().filter(x => x.id !== absEmp.id && empActive(x, date)), same = all.filter(x => sameSubject(absEmp, x)), rest = all.filter(x => !same.includes(x));
+  const opt = x => { const l = candLoad(x.id, date, WIZ.absId); return `<option value="${x.id}"${x.id === sel ? ' selected' : ''}>${esc(x.name)} · ${l.abs ? 'відсутній (' + l.abs.code + ')' : 'свої ' + fmt(l.own) + ' год' + (l.subs ? ' + зам. ' + fmt(l.subs) : '')}</option>`; };
+  return '<option value="">— хто заміняє —</option>' + (same.length ? `<optgroup label="Той самий предмет / посада">${same.map(opt).join('')}</optgroup>` : '') +
+    `<optgroup label="Інші працівники">${rest.map(opt).join('')}</optgroup><option value="*"${sel === '*' ? ' selected' : ''}>інша особа (текст)…</option>`;
+}
+/* кандидати того самого предмета, вільні в цей день — для кнопок швидкого вибору */
+function quickCands(absEmp, date) {
+  return emps().filter(x => x.id !== absEmp.id && empActive(x, date) && sameSubject(absEmp, x)).map(x => ({ e: x, l: candLoad(x.id, date, WIZ.absId) })).filter(c => !c.l.abs).slice(0, 8);
+}
+function wizardHtml() {
+  const a = byId(S.absences, WIZ.absId), e = a && byId(S.employees, a.empId);
+  if (!a || !e) { WIZ = null; MODAL = null; return ''; }
+  const total = WIZ.rows.reduce((s, r) => s + r.items.reduce((x, it) => x + (+it.h || 0), 0), 0), need = WIZ.rows.reduce((s, r) => s + r.planned, 0);
+  return `<div class="mbox" id="wizard"><header><h2>Заміни: ${esc(e.name)}, ${codePill(a.code)} ${fmtD(a.from)} – ${a.to ? fmtD(a.to) : '…'}</h2><span class="sp"></span><button class="x plain" data-act="wizCancel" title="Закрити">${ic('x')}</button></header>
+    <div class="wizbar"><label class="field" style="flex:1 1 320px">Один замінник на всі дні<select id="wizAll">${candOptions(e, WIZ.rows[0].date, WIZ.all || '')}</select></label>
+      <button class="btn primary" data-act="wizAssignAll">Поставити на всі вільні години</button><button class="btn" data-act="wizFill" title="Скопіювати склад замін першого дня на решту днів">Як у перший день</button><button class="btn ghost" data-act="wizClear">Очистити все</button></div>
+    <p class="hint">Або по днях: натисніть прізвище під датою — додасться із залишком годин цього дня (у дужках — його власні години того дня). Разом за день не більше, ніж уроків у відсутнього.</p>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th style="width:150px">Дата</th><th class="num" style="width:120px">Уроків</th><th>Хто заміняє</th></tr></thead><tbody>
+    ${WIZ.rows.map((r, i) => { const used = r.items.reduce((x, it) => x + (+it.h || 0), 0), over = used > r.planned + 1e-9, left = r.planned - used;
+      const chips = left > 0 ? quickCands(e, r.date).filter(c => !r.items.some(it => it.empId === c.e.id)) : [];
+      return `<tr class="${over ? 'warnrow' : ''}"><td class="cellname">${fmtD(r.date)}<span class="cellsub">${WD_FULL[dow(r.date)]}</span></td>
+      <td class="num"><b>${fmt(r.planned)}</b>${over ? `<span class="cellsub bad">записано ${fmt(used)}</span>` : left > 0 ? `<span class="cellsub warn">лишилось ${fmt(left)}</span>` : '<span class="cellsub ok">закрито</span>'}</td><td>
+      ${r.items.map((it, j) => { const other = it.empId === '*' || (it.empId === '' && it.name), l = !other && it.empId ? candLoad(it.empId, r.date, WIZ.absId) : null, tot = l ? l.own + l.subs + (+it.h || 0) : 0;
+        return `<div class="row" style="align-items:center;margin-bottom:2px"><select data-w="${i}|${j}|empId" style="width:330px">${candOptions(e, r.date, other ? '*' : it.empId)}</select>${other ? `<input data-w="${i}|${j}|name" value="${esc(it.name)}" placeholder="Прізвище І.П." style="width:180px">` : ''}<input type="number" step="0.5" min="0" data-w="${i}|${j}|h" value="${it.h ?? ''}" style="width:80px" title="годин"><span class="hint">год</span><button class="x" data-act="wizDel" data-i="${i}" data-j="${j}" title="Прибрати">${ic('x')}</button></div>` +
+          (l ? `<span class="loadinfo ${l.abs ? 'bad' : tot > 7 ? 'warn' : ''}">${l.abs ? `сам відсутній цього дня (${l.abs.code}) — оберіть іншого` : `цього дня в нього: свої ${fmt(l.own)} + інші заміни ${fmt(l.subs)} + ця ${fmt(+it.h || 0)} = ${fmt(tot)} год`}</span>` : ''); }).join('')}
+      ${chips.length ? `<div class="chips">${chips.map(c => `<button class="chipbtn" data-act="wizQuick" data-i="${i}" data-id="${c.e.id}" title="Додати із залишком ${fmt(left)} год">${esc(c.e.name)} <b>(${fmt(c.l.own + c.l.subs)})</b></button>`).join('')}</div>` : ''}
+      ${left > 0 || !r.items.length ? `<button class="btn small ghost" data-act="wizAdd" data-i="${i}">${ic('plus')} інший працівник…</button>` : ''}</td></tr>`; }).join('')}
+    </tbody></table></div>
+    <div class="row"><button class="btn primary" data-act="wizSave">${ic('check')} Зберегти заміни</button><button class="btn ghost" data-act="wizCancel">Пізніше</button><span class="hint">Замінено <b>${fmt(total)}</b> з ${fmt(need)} год</span></div></div>`;
+}
+/* модалка «з якого по яке число»: нова відсутність із клітинки або зміна наявної */
+function absModalHtml() {
+  const m = MODAL, ed = !!m.editId;
+  return `<div class="mbox center" style="width:min(720px,100%)"><header><h2>${ed ? 'Змінити відсутність' : 'Відсутність: з якого по яке число'}</h2><span class="sp"></span><button class="x plain" data-act="modalClose" title="Закрити">${ic('x')}</button></header>
+    <div class="row"><label class="field">Працівник<select id="mabsEmp">${empOptions(m.empId)}</select></label><label class="field">Код<select id="mabsCode">${codeOptions(m.code)}</select></label></div>
+    <div class="row"><label class="field s" style="flex:0 0 170px">З<input type="date" id="mabsFrom" value="${m.from}"></label><label class="field s" style="flex:0 0 170px">По (включно)<input type="date" id="mabsTo" value="${m.to || ''}"></label><label class="chk" style="padding-bottom:8px"><input type="checkbox" id="mabsOpen"${m.open ? ' checked' : ''}> безстроково</label><label class="field">Примітка<input id="mabsNote" value="${esc(m.note || '')}"></label></div>
+    <p class="hint">Код стане у всі дні періоду. Для коротких відсутностей (ТН, НА, В…) далі відкриється вікно замін по днях. Для ВП, ДД, М заміни не потрібні — на це місце береться інша людина (додайте її у «Працівниках»).</p>
+    <div class="row"><button class="btn primary" data-act="saveAbs" data-p="mabs">${ic('check')} Зберегти</button><button class="btn ghost" data-act="modalClose">Скасувати</button></div></div>`;
+}
+/* перший запуск у цьому браузері (або дані браузера стерто): не показуємо мовчки стартовий список, а питаємо */
+function firstHtml() {
+  return `<div class="mbox center" style="width:min(780px,100%)"><header><h2>У цьому браузері ще немає даних табеля</h2></header>
+    <p class="hint" style="font-size:14.5px">Дані програми зберігаються в браузері на цьому комп’ютері. Так буває при першому відкритті, в іншому браузері чи на іншому комп’ютері, у приватному вікні або якщо дані браузера очистили.</p>
+    ${EPHEMERAL ? `<div class="notice bad">${ic('alert')}<span class="grow"><b>Схоже, це приватне вікно (інкогніто).</b> Тут нічого не збережеться — для роботи відкрийте звичайне вікно.</span></div>` : ''}
+    <div class="choice">
+      <button data-act="firstRestore"><b>${ic('upload')} Відновити з копії</b><span>Якщо ви вже вели табель: виберіть файл копії <b>.json</b> — «Табель — поточні дані.json» з папки автокопій, файл із «Копії по днях» або копію, завантажену вручну.</span></button>
+      <button data-act="firstXlsx"><b>${ic('excel')} Завантажити з файлу табель.xlsx</b><span>Якщо ви ведете табель в Excel: програма візьме з файлу <b>всі місяці</b> — працівників, години, відсутності й заміни. Робиться один раз.</span></button>
+      <button data-act="firstEmpty"><b>${ic('people')} Почати з порожнього списку</b><span>Працівників і години впишете самі в розділі «Працівники».</span></button>
+    </div>
+    <p class="hint">Файл можна просто перетягнути у вікно. Поки ви не вибрали, програма нічого не записує.</p></div>`;
+}
+function renderModal() {
+  const el = $('#modal'); if (!el) return;
+  const t = MODAL?.type;
+  const h = !t ? '' : t === 'first' ? firstHtml() : t === 'wiz' && WIZ ? wizardHtml() : t === 'abs' ? absModalHtml() : t === 'cell' && POP ? cellModalHtml() : t === 'emp' ? posTitlesList() + empCardHtml() : t === 'empAdd' ? posTitlesList() + empAddHtml() : '';
+  el.hidden = !h; el.innerHTML = h; document.body.style.overflow = h ? 'hidden' : '';
+}
+function wizSave() {
+  const a = byId(S.absences, WIZ.absId), e = byId(S.employees, a.empId);
+  for (const r of WIZ.rows) for (const it of r.items) { if (!it.empId || it.empId === '*' || !(+it.h > 0)) continue; const l = candLoad(it.empId, r.date, a.id); if (l?.abs) return toast(`${fmtD(r.date)}: ${byId(S.employees, it.empId).name} сам відсутній (${l.abs.code}) — оберіть іншого`); }
+  for (const r of WIZ.rows) { const used = r.items.reduce((x, it) => x + (+it.h || 0), 0); if (used > r.planned + 1e-9) return toast(`${fmtD(r.date)}: замін ${fmt(used)} год, а за графіком у ${e.name} лише ${fmt(r.planned)} — зменште години`); }
+  const groups = new Map();
+  for (const r of WIZ.rows) for (const it of r.items) {
+    const key = it.empId && it.empId !== '*' ? 'e:' + it.empId : 't:' + (it.name || '').trim();
+    if (key === 't:' || !(+it.h > 0)) continue;
+    if (!groups.has(key)) groups.set(key, { empId: it.empId && it.empId !== '*' ? it.empId : null, subName: it.empId && it.empId !== '*' ? '' : it.name.trim(), days: {} });
+    groups.get(key).days[r.date] = +it.h;
+  }
+  const old = subsOfAbs(a), keep = [];
+  for (const g of groups.values()) {
+    let s = old.find(x => (g.empId ? x.empId === g.empId : x.subName === g.subName) && !keep.includes(x));
+    if (!s) { s = { id: uid(), absId: a.id, empId: g.empId, subName: g.subName, forEmpId: e.id, forLabel: 'замість ' + genitive(e.name), days: {} }; S.subs.push(s); }
+    s.days = g.days; keep.push(s);
+  }
+  S.subs = S.subs.filter(x => x.absId !== a.id || keep.includes(x));
+  WIZ = null; MODAL = null; save(true); render(); toast(groups.size ? 'Заміни збережено' : 'Заміни очищено');
+}
+
+/* ---------- Календар ---------- */
+V.cal = () => {
+  const y = CALY, hol = holidaysOf(y), t = today();
+  const months = [];
+  for (let m = 1; m <= 12; m++) {
+    const n = daysIn(y, m), pad = dow(iso(y, m, 1));
+    let g = WD.map(w => `<span>${w}</span>`).join('') + '<i></i>'.repeat(pad);
+    for (let d = 1; d <= n; d++) {
+      const s = iso(y, m, d), o = S.calendar[s], cls = [];
+      if (o) cls.push(o.kind); else if (dow(s) >= 5) cls.push('wk');
+      if (S.holidays && hol.has(s) && !o) cls.push('off');
+      if (hol.has(s)) cls.push('hol');
+      if (s === t) cls.push('today');
+      g += `<button class="${cls.join(' ')}" data-act="calToggle" data-d="${s}" title="${esc(dayTitle(s))}${hol.has(s) ? ' · ' + esc(hol.get(s)) : ''}">${d}</button>`;
+    }
+    months.push(`<div class="cal-m"><h3>${MONTHS[m - 1]}</h3><div class="cal-g">${g}</div></div>`);
+  }
+  const ex = Object.entries(S.calendar).filter(([d]) => d.startsWith(y + '-')).sort();
+  return pageHead('Календар', 'Субота й неділя — завжди вихідні, для будь-якого року. Клацніть день, щоб зробити виняток: робочу суботу або додатковий неробочий день.',
+    `<button class="btn ghost" data-act="calYear" data-v="-1">${ic('left')}</button><b style="font:600 22px var(--display);min-width:60px;text-align:center">${y}</b><button class="btn ghost" data-act="calYear" data-v="1">${ic('right')}</button>`) +
+  `<div class="toolbar"><label class="chk"><input type="checkbox" data-f="set.holidays"${S.holidays ? ' checked' : ''}> Державні свята — неробочі ${q('На час воєнного стану святкові дні не є вихідними, тому за замовчуванням вимкнено. Дати свят позначені пунктиром довідково; будь-яку можна зробити робочою клацанням.')}</label><span class="sp"></span>
+     <span class="hint"><span class="pill" style="background:var(--bad-soft);color:var(--bad)">Сб/Нд</span> <span class="pill" style="background:var(--bad);color:#fff">неробочий (виняток)</span> <span class="pill" style="background:var(--ok);color:#fff">робочий (виняток)</span></span>
+     ${ex.length ? `<button class="btn small ghost" data-act="calClear" data-y="${y}">Скинути винятки ${y}</button>` : ''}</div>
+   <div class="cal">${months.join('')}</div>
+   ${ex.length ? `<section class="card"><header><h3>Винятки ${y} року</h3></header><div class="tblwrap"><table class="tbl"><tbody>${ex.map(([d, o]) => `<tr><td class="num" style="width:140px">${fmtD(d)}, ${WD_FULL[dow(d)]}</td><td>${o.kind === 'work' ? `<span class="pill ok">робочий</span> за розкладом <select data-f="cal.as" data-id="${d}" style="width:auto">${WD.slice(0, 5).map((w, i) => `<option value="${i}"${(o.as ?? dow(d)) === i ? ' selected' : ''}>${w}</option>`).join('')}</select>` : `<span class="pill bad">неробочий</span> <input data-f="cal.title" data-id="${d}" value="${esc(o.title || '')}" placeholder="назва (необов’язково)" style="max-width:320px;display:inline-block">`}</td><td style="text-align:right"><button class="x" data-act="calDel" data-d="${d}">${ic('trash')}</button></td></tr>`).join('')}</tbody></table></div></section>` : ''}`;
+};
+
+/* ---------- Налаштування ---------- */
+V.settings = () => pageHead('Налаштування', '') +
+  `<section class="card"><header><h2>Заклад і підписи</h2></header>
+    <label class="field">Назва закладу (шапка «Підприємство:»)<input data-f="set.school" value="${esc(S.school)}"></label>
+    <div class="row"><label class="field">Посада 1-го підписанта<input data-f="sign.deputyTitle" value="${esc(S.sign.deputyTitle)}"></label><label class="field">Ім’я<input data-f="sign.deputyName" value="${esc(S.sign.deputyName)}"></label></div>
+    <div class="row"><label class="field">Посада 2-го підписанта<input data-f="sign.directorTitle" value="${esc(S.sign.directorTitle)}"></label><label class="field">Ім’я<input data-f="sign.directorName" value="${esc(S.sign.directorName)}"></label></div>
+  </section>
+  <section class="card"><header><h2>Навчальний рік і друк</h2></header>
+    <div class="row"><label class="field s">Початок (ММ-ДД)<input data-f="sy.from" value="${esc(S.schoolYear.from)}" placeholder="09-01"></label><label class="field s">Кінець (ММ-ДД)<input data-f="sy.to" value="${esc(S.schoolYear.to)}" placeholder="05-31"></label><span class="hint" style="padding-bottom:10px">У межах навчального року програма нагадує про заміни для відсутніх із уроками.</span></div>
+    <div class="row"><div class="field">Орієнтація друку<div><span class="seg"><button data-act="orient" data-v="portrait" aria-pressed="${S.print.orientation === 'portrait'}">Книжкова</button><button data-act="orient" data-v="landscape" aria-pressed="${S.print.orientation === 'landscape'}">Альбомна</button></span></div></div>
+      <label class="chk" style="padding-bottom:8px"><input type="checkbox" data-f="print.emptyCols"${S.print.emptyCols ? ' checked' : ''}> Показувати порожні колонки форми (цілозм. простої, недопрацьовані год, нічні/вечірні)</label></div>
+    <label class="chk"><input type="checkbox" data-f="set.holidays"${S.holidays ? ' checked' : ''}> Державні свята — неробочі дні (вимкнено на час воєнного стану)</label>
+  </section>
+  <section class="card"><header><h2>Коди табеля</h2></header><p class="sub">Позначення форми; колонки-лічильники є лише для В, ВП, ТН, НА, ДД, П, ВХ — решта кодів показуються в клітинках, але не рахуються в підсумках.</p>
+    <div class="tblwrap"><table class="tbl"><tbody>${CODES.map(([c, d]) => `<tr><td style="width:60px">${codePill(c)}</td><td>${esc(d)}</td><td class="muted">${COUNTED.has(c) ? 'є колонка' : ''}</td></tr>`).join('')}</tbody></table></div>
+  </section>`;
+
+/* ---------- Дані і копії ---------- */
+V.data = () => `${pageHead('Дані і копії', 'Дані зберігаються в цьому браузері на цьому комп’ютері. Робіть копії файлом і, якщо можливо, у папку на диску.')}
+<section class="card"><header><h2>Копія файлом</h2><span class="sp"></span><button class="btn primary" data-act="backup">${ic('download')} Завантажити копію</button><button class="btn" data-act="openJson">${ic('upload')} Відновити з файлу</button></header>
+  <p class="sub">Файл .json з усіма даними програми. Перешліть його собі, щоб відкрити на іншому комп’ютері.</p></section>
+<section class="card"><header><h2>Імпорт із табель.xlsx</h2><span class="sp"></span><button class="btn" data-act="pickXlsx">${ic('upload')} Вибрати файл</button></header>
+  <p class="sub">Читає аркуші-місяці табеля школи: працівників, посади, ставки, графіки (за повторенням годин по днях тижня), відсутності й заміни. Зручно на початку нового навчального року.</p>
+  ${IMPORT ? importHtml() : `<div class="drop" data-act="pickXlsx" tabindex="0">${ic('upload')}<div><b>Перетягніть сюди файл табеля .xlsx</b><span>або натисніть, щоб вибрати</span></div></div>`}
+</section>
+${canDir ? `<section class="card"><header><h2>Автокопії в папку</h2><span class="sp"></span>${DIR ? `<button class="btn small ghost" data-act="forgetDir">Не записувати</button>` : ''}<button class="btn" data-act="pickDir">${ic('folder')} ${DIR ? 'Змінити папку' : 'Вибрати папку…'}</button></header>
+  <p class="sub">${DIR ? `Папка «${esc(DIR.name)}»${dirOk ? '' : ' — потрібен дозвіл'}. Після кожної зміни файл «Табель — поточні дані.json» оновлюється, плюс копія по днях.` : 'Виберіть папку (наприклад, на флешці або в хмарній теці) — програма сама писатиме туди копії.'}</p></section>` : ''}
+<section class="card"><header><h2>Точки відновлення</h2><span class="sp"></span><button class="btn small" data-act="snapNow">${ic('plus')} Створити зараз</button></header>
+  <p class="sub">Створюються самі: при відкритті програми, перед імпортом, відновленням і очищенням. Зберігаються останні ${KEEP_SNAPS}.</p><div id="snaps"><p class="muted">Завантаження…</p></div></section>
+<section class="card"><header><h2>Перевірка програми</h2><span class="sp"></span><button class="btn small" data-act="copyDiag">${ic('copy')} Скопіювати для підтримки</button></header><div id="diag"><p class="muted">Перевірка…</p></div></section>
+<section class="card"><header><h2>Почати з нуля</h2><span class="sp"></span><button class="btn danger" data-act="reset">${ic('trash')} Видалити всі дані</button></header><p class="sub">Перед видаленням створюється точка відновлення.</p></section>`;
+function importHtml() {
+  const sh = IMPORT.sheets[IMPORT.pick];
+  const known = e => S.employees.find(x => normName(x.name) === normName(e.name));
+  const newEmp = sh.employees.filter(e => !known(e));
+  let patDiff = 0;
+  for (const e of sh.employees) { const k = known(e); if (!k) continue; e.positions.forEach((p, i) => { const kp = matchPos(k, p, i, e.positions.length); const cur = kp && loadAt(kp, iso(sh.y, sh.m, 1))?.pattern; if (kp && JSON.stringify(cur || null) !== JSON.stringify(p.pattern)) patDiff++; }); }
+  const absN = sh.employees.reduce((a, e) => a + e.positions[0].codes.length, 0);
+  return `<div class="notice"><span class="grow"><b>${esc(IMPORT.file)}</b>: ${IMPORT.sheets.length} ${plural(IMPORT.sheets.length, 'аркуш', 'аркуші', 'аркушів')}</span><button class="btn small ghost" data-act="importClose">Закрити</button></div>
+  <div class="row"><label class="field">Місяць<select data-f="imp.pick">${IMPORT.sheets.map((s, i) => `<option value="${i}"${i === IMPORT.pick ? ' selected' : ''}>${monthName(s.y, s.m)} (аркуш «${esc(s.sheetName)}»)</option>`).join('')}</select></label>
+    <div class="field">Що застосувати<div><span class="seg"><button data-act="impMode" data-v="sched" aria-pressed="${IMPORT.mode === 'sched'}">Працівники і графіки</button><button data-act="impMode" data-v="full" aria-pressed="${IMPORT.mode === 'full'}">Повний місяць</button></span></div></div></div>
+  <div class="facts"><div class="fact"><b>${sh.employees.length}</b><span>працівників у аркуші</span></div><div class="fact"><b>${newEmp.length}</b><span>нових (буде додано)</span></div><div class="fact"><b>${patDiff}</b><span>графіків зміниться з ${fmtD(iso(sh.y, sh.m, 1))}</span></div><div class="fact"><b>${absN}</b><span>відсутностей у аркуші</span></div><div class="fact"><b>${sh.subs.length}</b><span>рядків замін</span></div></div>
+  ${newEmp.length ? `<p class="hint">Нові: ${newEmp.map(e => esc(e.name)).join(', ')}</p>` : ''}
+  <p class="hint">«Повний місяць» додатково записує відсутності, ручні правки клітинок, рядки замін і винятки календаря цього місяця. Перед застосуванням створюється точка відновлення.</p>
+  <div class="row"><button class="btn primary" data-act="importApply">${ic('check')} Застосувати цей місяць</button><button class="btn" data-act="importHistory" title="Усі місяці з файлу, старші за ті, що вже є в програмі. Поточні місяці не зачіпаються.">Додати всі попередні місяці</button><button class="btn danger" data-act="importAllReplace" title="Замінити всі дані програми даними з файлу">Замінити все даними з файлу…</button></div>`;
+}
+/* зіставлення посади з аркуша з наявною: за назвою; без назви — за порядком; одна посада в обох — за фактом */
+function matchPos(emp, p, i, total = 1) {
+  const n = normName(p.title);
+  if (n) { const byTitle = emp.positions.find(x => normName(x.title) === n); if (byTitle) return byTitle; }
+  else if (emp.positions[i]) return emp.positions[i];
+  /* одна посада і там, і тут — вважаємо перейменуванням, лише якщо назви схожі (вч.труд.навч → вч.технологій), а не інша робота */
+  if (total !== 1 || emp.positions.length !== 1) return null;
+  const t0 = normName(emp.positions[0].title);
+  return !n || !t0 || t0.slice(0, 3) === n.slice(0, 3) ? emp.positions[0] : null;
+}
+/* Імпорт одного аркуша-місяця. mode: 'sched' — лише працівники й графіки; 'full' — ще відсутності, заміни, календар і точне відтворення клітинок.
+   chrono — місяці йдуть підряд від старих до нових (імпорт усього файлу): тоді закриваємо тих, хто зник із наступного аркуша. */
+/* назва закладу й підписи з аркуша — лише якщо в програмі їх ще немає */
+function takeHeader(sh) {
+  if (sh.school && !S.school) S.school = sh.school;
+  if (sh.sign) {
+    const [d, dir] = sh.sign;
+    if (d && !S.sign.deputyName) { if (d.post) S.sign.deputyTitle = d.post; S.sign.deputyName = d.name; }
+    if (dir && !S.sign.directorName) { if (dir.post) S.sign.directorTitle = dir.post; S.sign.directorName = dir.name; }
+  }
+}
+function importSheet(sh, mode, chrono, created) {
+  const from = iso(sh.y, sh.m, 1), last = iso(sh.y, sh.m, daysIn(sh.y, sh.m)), prevEnd = addDays(from, -1), full = mode === 'full';
+  let order = Math.max(0, ...S.employees.map(e => e.order));
+  const hasLater = x => x.positions.some(p => p.loads.some(l => l.from > last));
+  const laterExists = S.employees.some(hasLater);
+  const pairs = [], present = new Set(), seenPos = new Set();
+  const gapOk = (a, b) => { if (a >= addDays(b, -1)) return true; for (const d of dateRange(addDays(a, 1), addDays(b, -1))) if (isWorkingDay(d)) return false; return true; };
+  for (const e of sh.employees) {
+    let k = S.employees.find(x => normName(x.name) === normName(e.name));
+    if (!k) { k = { id: uid(), name: e.name, order: ++order, from: null, to: null, positions: [] }; S.employees.push(k); created.add(k.id); }
+    present.add(k.id);
+    if (k.to && k.to < last && created.has(k.id)) k.to = null;   // знову з'явився в аркуші
+    e.positions.forEach((p, i) => {
+      const pFrom = p.start ? iso(sh.y, sh.m, p.start + 1) : from;
+      let kp = matchPos(k, p, i, e.positions.length);
+      if (!kp) { kp = { id: uid(), title: p.title, to: null, loads: [], _new: true }; k.positions.splice(i, 0, kp); }
+      if (kp.to && kp.to < last && !hasLaterPos(kp, last)) kp.to = null;
+      seenPos.add(kp.id);
+      const cur = loadAt(kp, pFrom);
+      /* дні тижня, яких у цьому місяці не було видно (відпустка, лікарняний), беремо з чинного графіка */
+      const eff = p.patRaw ? p.patRaw.map((v, w) => v ?? cur?.pattern?.[w] ?? p.pattern[w]) : null;
+      const upsert = (rate, pattern) => { const ex = kp.loads.find(l => l.from === pFrom); if (ex) { ex.pattern = pattern; ex.rate = rate; } else kp.loads.push({ from: pFrom, rate, pattern }); };
+      if (!cur) upsert(p.rate, eff);
+      else if (eff && (JSON.stringify(cur.pattern || null) !== JSON.stringify(eff) || (p.rate != null && cur.rate !== p.rate))) upsert(p.rate ?? cur.rate ?? null, eff);
+      else if (!eff && p.rate != null && cur.rate == null) cur.rate = p.rate;
+      pairs.push([k, kp, p, sh]);
+    });
+  }
+  if (full) {
+    /* хто був активний, але зник із цього аркуша — працював до кінця попереднього місяця (лише при імпорті підряд) */
+    if (chrono) for (const x of S.employees) {
+      const activeNow = (!x.to || x.to >= from) && x.positions.some(p2 => loadAt(p2, prevEnd) && (!p2.to || p2.to >= from));
+      if (!present.has(x.id)) { if (activeNow && created.has(x.id) && !hasLater(x)) x.to = prevEnd; continue; }
+      for (const p2 of x.positions) if (!seenPos.has(p2.id) && loadAt(p2, prevEnd) && (!p2.to || p2.to >= from) && !hasLaterPos(p2, last)) p2.to = prevEnd;
+    }
+    for (const e of sh.employees) {
+      const k = S.employees.find(x => normName(x.name) === normName(e.name)), runs = e.positions[0].codes;
+      /* безстрокова відсутність із минулого, якої на початку цього місяця вже немає — закінчилась у попередньому */
+      for (const a of S.absences) if (a.empId === k.id && !a.to && a.from < from && !runs.some(c => c.code === a.code && c.from === from)) a.to = prevEnd;
+      for (const c of runs) {
+        const openEnd = c.to === last && LONG_CODES.has(c.code) && !laterExists;
+        const ex = S.absences.find(a => a.empId === k.id && a.code === c.code && a.from <= c.to && (a.to == null ? a.from <= c.from || true : gapOk(a.to, c.from) && a.to >= addDays(c.from, -6)));
+        if (ex) { if (c.from < ex.from) ex.from = c.from; if (ex.to == null) { if (!openEnd) ex.to = c.to; } else if (openEnd) ex.to = null; else if (ex.to < c.to) ex.to = c.to; continue; }
+        S.absences.push({ id: uid(), empId: k.id, code: c.code, from: c.from, to: openEnd ? null : c.to, note: 'з табеля.xlsx' });
+      }
+    }
+    /* календар: будній, де в усіх ВХ → неробочий; вихідний, де в більшості числа → робочий */
+    const n = daysIn(sh.y, sh.m), rowsAll = sh.employees.flatMap(e => e.positions);
+    for (let i = 0; i < n; i++) {
+      const s = iso(sh.y, sh.m, i + 1), vals = rowsAll.map(p => p.cells[i]), nums = vals.filter(v => typeof v === 'number').length, vx = vals.filter(v => v === 'ВХ').length;
+      if (dow(s) < 5 && vx > rowsAll.length * 0.8 && !nums) S.calendar[s] = { kind: 'off', title: '' };
+      if (dow(s) >= 5 && nums > rowsAll.length * 0.5) S.calendar[s] = { kind: 'work', as: dow(s) === 5 ? 4 : 0 };
+    }
+    for (const s of sh.subs) {
+      const who = findEmpByRef(s.name);
+      const m = s.label.match(/^замість\s+(.+)$/i), forEmp = m ? findEmpByRef(m[1]) : null;
+      const abs = forEmp ? S.absences.find(a => a.empId === forEmp.id && Object.keys(s.days).length && Object.keys(s.days).every(d => d >= a.from && (!a.to || d <= a.to))) : null;
+      if (S.subs.some(x => subName(x) === (who ? who.name : s.name) && x.forLabel === s.label && JSON.stringify(x.days) === JSON.stringify(s.days))) continue;
+      S.subs.push({ id: uid(), absId: abs?.id || null, empId: who?.id || null, subName: who ? '' : s.name, forEmpId: forEmp?.id || null, forLabel: s.label, days: { ...s.days }, month: from.slice(0, 7) });
+    }
+    pinCells(pairs);
+  }
+  return { pairs, from, last, laterExists };
+}
+const hasLaterPos = (p, last) => p.loads.some(l => l.from > last);
+/* точне відтворення аркуша: де складена клітинка не збігається з Excel — закріплюємо значення з Excel */
+function pinCells(pairs) {
+  let bad = 0;
+  for (const [k, kp, p, sh] of pairs) p.cells.forEach((raw, i) => {
+    const d = iso(sh.y, sh.m, i + 1), want = raw == null ? '' : raw, key = kp.id + '|' + d;
+    delete S.overrides[key];
+    if (cellValue(k, kp, d) !== want) { S.overrides[key] = want; bad++; }
+  });
+  return bad;
+}
+async function applyImport() {
+  const sh = IMPORT.sheets[IMPORT.pick], created = new Set();
+  await snapshot('перед імпортом');
+  takeHeader(sh);
+  const r = importSheet(sh, IMPORT.mode, false, created);
+  /* якщо вже є графіки пізніших місяців, а працівника там немає — він працював лише до кінця імпортованого місяця */
+  if (r.laterExists) for (const e of S.employees) if (created.has(e.id) && !e.to) e.to = r.last;
+  for (const e of S.employees) for (const p of e.positions) { if (p._new && r.laterExists && !e.to && !p.to && !hasLaterPos(p, r.last)) p.to = r.last; delete p._new; }
+  IMPORT = null; save(true); setCur(sh.y, sh.m); go('tabel'); toast('Імпортовано: ' + monthName(sh.y, sh.m));
+}
+/* Увесь файл одразу. kind: 'all' — з чистого аркуша (перший запуск); 'history' — лише місяці, старші за наявні дані */
+async function importAll(kind) {
+  let sheets = [...IMPORT.sheets].sort((a, b) => a.y - b.y || a.m - b.m);
+  if (kind === 'history') {
+    const minFrom = S.employees.flatMap(e => e.positions.flatMap(p => p.loads.map(l => l.from))).sort()[0] || '9999';
+    sheets = sheets.filter(sh => iso(sh.y, sh.m, daysIn(sh.y, sh.m)) < minFrom);
+    if (!sheets.length) { toast('У файлі немає місяців, старших за ті, що вже є в програмі'); return; }
+    await snapshot('перед імпортом історії');
+  } else {
+    const keep = { school: S.school, sign: S.sign, schoolYear: S.schoolYear, print: S.print, holidays: S.holidays };
+    if (!FIRST) await snapshot('перед імпортом усього файлу');
+    S = Object.assign(blank(), keep);
+  }
+  const created = new Set(), all = [];
+  takeHeader(sheets[sheets.length - 1]);
+  for (const sh of sheets) all.push(...importSheet(sh, 'full', true, created).pairs);
+  const lastSh = sheets[sheets.length - 1], lastEnd = iso(lastSh.y, lastSh.m, daysIn(lastSh.y, lastSh.m));
+  /* історія: ті, кого немає в пізніших даних, працювали до кінця останнього імпортованого місяця */
+  if (kind === 'history') for (const e of S.employees) { if (created.has(e.id) && !e.to) e.to = lastEnd; for (const p of e.positions) if (p._new && !e.to && !p.to && !hasLaterPos(p, lastEnd)) p.to = lastEnd; }
+  for (const e of S.employees) for (const p of e.positions) delete p._new;
+  S.employees.forEach((e, i) => e.order = i + 1);
+  pinCells(all);
+  /* контроль: після закріплення не має лишитись жодної розбіжності з файлом */
+  let bad = 0; for (const [k, kp, p, sh] of all) p.cells.forEach((raw, i) => { if (cellValue(k, kp, iso(sh.y, sh.m, i + 1)) !== (raw == null ? '' : raw)) bad++; });
+  const wasFirst = FIRST; FIRST = false; MODAL = null; IMPORT = null; lastState = wasFirst ? JSON.stringify(S) : lastState;
+  save(true); await flush(); if (wasFirst) await snapshot('усі місяці з табель.xlsx');
+  if (kind === 'all') setCur(lastSh.y, lastSh.m); go('tabel');
+  toast(`Завантажено місяців: ${sheets.length} (${monthName(sheets[0].y, sheets[0].m)} – ${monthName(lastSh.y, lastSh.m)})` + (bad ? `. Розбіжностей із файлом: ${bad}` : '. Усе збігається з файлом'));
+  return { months: sheets.length, bad };
+}
+
+/* ---------- Довідка ---------- */
+V.help = () => pageHead('Як працює програма', '') + `
+<section class="card"><header><h2>Табель складається сам</h2></header>
+  ${how('Звідки береться кожна клітинка', 'Спершу — <b>ручна правка</b> (якщо клітинку виправили у табелі), далі — <b>відсутність</b> працівника з розділу «Відсутності» (код у всі дні періоду, включно з вихідними), далі — <b>вихідний</b> за календарем (ВХ), і нарешті — <b>графік посади</b>: години цього дня тижня.', 'Підсумкові колонки (дні явок, неявки за кодами, години) рахуються автоматично. «Всього:» — по працівниках, «Разом» — по рядках замін.')}
+  ${how('Наступні місяці', 'Графіки зберігаються в картках працівників, тому жовтень, листопад і далі складаються самі. Якщо у когось змінюються години — у «Працівниках» натисніть «Змінити з дати…», старі місяці лишаться правильними.', 'На початку нового навчального року натисніть «Новий навчальний рік…» — або імпортуйте новий табель.xlsx у «Дані і копії».')}
+  ${how('Вихідні та свята', 'Субота й неділя — вихідні для будь-якого року (2030-й теж). Робочу суботу чи додатковий неробочий день робіть у «Календарі» одним клацанням.')}
+  ${how('Відсутності та заміни', 'Додайте відсутність із кодом та періодом. Для ВП, ДД (декрет, догляд) ставте «безстроково». Якщо період припадає на навчальний рік і у працівника є уроки, відкриється майстер замін: на кожен день вибираєте, хто замінив і скільки годин. Рядки замін з’являються під табелем; години в них можна правити клацанням.')}
+  ${how('Друк і Excel', '«Друк» — таблиця за місяць на A4 (книжкова або альбомна). «Excel» — файл у форматі табеля школи з формулами; «Excel за рік» — 12 аркушів.')}
+  ${how('Копії', 'Дані живуть у браузері цього комп’ютера. Виберіть папку для автокопій або регулярно завантажуйте копію файлом у розділі «Дані і копії». <span class="kbd">Ctrl+Z</span> скасовує останню зміну.')}
+</section>`;
+
+/* перевірка можливостей браузера: що працює на цьому ПК */
+function diagList() {
+  const ua = navigator.userAgent;
+  const name = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'інший браузер';
+  const v = (ua.match(/(?:Edg|OPR|Firefox|Chrome)\/(\d+)/) || [])[1] || '';
+  const sw = !('serviceWorker' in navigator) ? [false, 'браузер не підтримує'] : location.protocol !== 'https:' ? [false, 'працює лише на сайті, а не з файлу'] : navigator.serviceWorker.controller ? [true, 'увімкнено'] : [null, 'увімкнеться після перезапуску'];
+  return [
+    ['Браузер', [name === 'Chrome' || name === 'Edge', `${name} ${v}`.trim() + (name === 'Chrome' || name === 'Edge' ? '' : ' — краще Chrome або Edge')]],
+    ['Збереження даних (база)', [!saveErr, saveErr ? 'не працює: ' + saveErr : 'працює']],
+    ['Читання файлів Excel', [typeof DecompressionStream !== 'undefined', typeof DecompressionStream !== 'undefined' ? 'працює' : 'браузер застарий — оновіть Chrome або Edge']],
+    ['Копії в папку на диску', [canDir, canDir ? (DIR ? (dirOk ? `папка «${DIR.name}»` : 'потрібен дозвіл') : 'доступно, папку ще не вибрано') : 'недоступно в цьому браузері — робіть копії файлом']],
+    ['Робота без інтернету', sw],
+    ['Адреса', [location.protocol === 'https:', location.host || 'локальний файл']],
+    ['Версія програми', [true, VERSION]]
+  ];
+}
+const mb = n => (n / 1048576).toFixed(1).replace('.', ',') + ' МБ';
+async function renderDiag() {
+  const el = $('#diag'); if (!el) return;
+  const rows = diagList();
+  let mem = '';
+  try { const e = await navigator.storage?.estimate?.(); if (e?.usage) mem = `${mb(e.usage)} з ${mb(e.quota)}`; } catch (err) {}
+  if (mem) rows.push(['Зайнято місця', [true, mem]]);
+  const persisted = await navigator.storage?.persisted?.().catch(() => false);
+  rows.push(['Захист від очищення браузером', [!!persisted, persisted ? 'увімкнено' : 'не увімкнено — обов’язково робіть копії']]);
+  el.innerHTML = `<div class="tblwrap"><table class="tbl"><tbody>${rows.map(([t, [ok, txt]]) => `<tr><td style="width:280px">${esc(t)}</td><td><span class="pill ${ok === true ? 'ok' : ok === false ? 'bad' : 'warn'}">${ok === true ? ic('check') : ic('alert')} ${esc(txt)}</span></td></tr>`).join('')}</tbody></table></div>`;
+  el.dataset.text = rows.map(([t, [, txt]]) => `${t}: ${txt}`).join(' | ');
+}
+async function renderSnaps() {
+  const el = $('#snaps'); if (!el) return;
+  const all = await listSnaps().catch(() => []);
+  const dt = t => new Date(t).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  el.innerHTML = all.length ? `<div class="tblwrap"><table class="tbl"><thead><tr><th style="width:170px">Коли</th><th>Причина</th><th>Що всередині</th><th style="width:230px"></th></tr></thead><tbody>` +
+    all.map(s => `<tr><td class="num">${dt(s.at)}</td><td>${esc(s.reason)}</td><td class="muted">${esc(s.info)}</td><td style="white-space:nowrap;text-align:right"><button class="btn small" data-act="snapRestore" data-id="${s.id}">${ic('restore')} Відновити</button> <button class="btn small ghost" data-act="snapDownload" data-id="${s.id}">${ic('download')} Файлом</button></td></tr>`).join('') +
+    '</tbody></table></div>' : '<p class="muted">Копій ще нема.</p>';
+}
+/* ---------- дії ---------- */
+const findPos = id => { for (const e of S.employees) { const p = byId(e.positions, id); if (p) return [e, p]; } return [null, null]; };
+const askDate = (msg, def) => { const v = prompt(msg + ' (РРРР-ММ-ДД):', def); if (v == null) return null; if (!/^\d{4}-\d{2}-\d{2}$/.test(v.trim())) { toast('Дата має бути у форматі РРРР-ММ-ДД'); return null; } return v.trim(); };
+const ACT = {
+  undo: () => {
+    const prev = UNDO.pop();
+    if (!prev) return toast('Немає що скасовувати');
+    S = JSON.parse(prev); lastState = prev;
+    flush(); render(); toast('Останню зміну скасовано');
+  },
+  clearQ: el => { Q[el.dataset.k] = ''; render(); setTimeout(() => $(`[data-q="${el.dataset.k}"]`)?.focus(), 0); },
+  pinCol: el => { const i = +el.dataset.i; PIN.cols.has(i) ? PIN.cols.delete(i) : PIN.cols.add(i); keepScroll(render); },
+  pinRow: el => { const id = el.dataset.id; PIN.rows.has(id) ? PIN.rows.delete(id) : PIN.rows.add(id); keepScroll(render); },
+  pinClear: () => { PIN.cols.clear(); PIN.rows.clear(); keepScroll(render); },
+  prevMonth: () => { setCur(CUR.y, CUR.m - 1); render(); },
+  nextMonth: () => { setCur(CUR.y, CUR.m + 1); render(); },
+  orient: el => { S.print.orientation = el.dataset.v; save(); keepScroll(render); },
+  print: () => print(),
+  exportMonth, exportYear,
+  popSet: () => { const v = parseFloat(String($('#popH')?.value || '').replace(',', '.')); if (isNaN(v) || v < 0) return toast('Впишіть кількість годин'); popApply(v); },
+  /* мітка відсутності в клітинці → одразу питаємо період, далі заміни; ВХ лишається правкою однієї клітинки */
+  popCode: el => {
+    const c = el.dataset.v;
+    if (POP?.kind !== 'cell' || !ABS_CODES.includes(c)) return popApply(c);
+    const [emp] = findPos(POP.key), date = POP.date; POP = null;
+    MODAL = { type: 'abs', empId: emp.id, code: c, from: date, to: date, open: false }; renderModal();
+  },
+  modalClose: () => { if (FIRST) return; MODAL = null; WIZ = null; render(); },
+  firstRestore: () => $('#fileJson').click(),
+  firstXlsx: () => $('#fileXlsx').click(),
+  importHistory: () => importAll('history'),
+  importAllReplace: () => { if (confirm('Замінити ВСІ дані програми даними з файлу Excel?\n\nПрацівники, відсутності, заміни й ручні правки, внесені в програмі, будуть замінені тим, що є у файлі. Перед цим створюється точка відновлення.')) importAll('all'); },
+  firstEmpty: async () => { FIRST = false; MODAL = null; S = blank(); lastState = JSON.stringify(S); await flush(); go('emp'); toast('Почали з порожнього списку — додайте працівників'); },
+  popBlank: () => popApply(POP?.kind === 'cell' ? '' : undefined),
+  popReset: () => popApply(undefined),
+  popClose: closePop,
+  addSubRow: () => {
+    const who = prompt('Хто заміняє (прізвище та ініціали, як у списку працівників):'); if (!who) return;
+    const emp = findEmpByRef(who);
+    const label = prompt('Підпис у дужках (наприклад: замість Іваненко І.І. або вакансія ГПД):', 'замість ') ?? '';
+    const m = label.match(/^замість\s+(.+)$/i), forEmp = m ? findEmpByRef(m[1]) : null;
+    S.subs.push({ id: uid(), absId: null, empId: emp?.id || null, subName: emp ? '' : who.trim(), forEmpId: forEmp?.id || null, forLabel: label.trim(), days: {}, month: iso(CUR.y, CUR.m, 1).slice(0, 7) });
+    save(true); if (TAB !== 'tabel') go('tabel'); else render(); toast('Рядок додано — клацайте клітинки днів, щоб вписати години');
+  },
+  delSub: el => { const s = byId(S.subs, el.dataset.id); if (!s || !confirm(`Видалити рядок заміни «${subName(s)}»?`)) return; S.subs = S.subs.filter(x => x !== s); save(true); render(); },
+  /* працівники */
+  empAddOpen: () => { MODAL = { type: 'empAdd' }; render(); setTimeout(() => $('#newName')?.focus(), 0); },
+  empCard: el => { MODAL = { type: 'emp', id: el.dataset.id }; render(); },
+  addEmp: () => {
+    const name = $('#newName').value.trim(); if (!name) return toast('Впишіть прізвище та ініціали');
+    if (S.employees.some(x => normName(x.name) === normName(name)) && !confirm(`Працівник «${name}» уже є у списку. Додати ще одного з таким самим прізвищем?`)) return;
+    const title = $('#newTitle').value.trim(), rate = parseFloat($('#newRate').value.replace(',', '.')), from = $('#newFrom').value || null;
+    const pat = [0, 1, 2, 3, 4].map(i => { const v = $('#newP' + i).value; return v === '' ? null : Math.max(0, +v); });
+    const e = { id: uid(), name, order: Math.max(0, ...S.employees.map(x => x.order)) + 1, from, to: null, positions: [{ id: uid(), title, to: null, loads: [{ from: from || iso(CUR.y, CUR.m, 1), rate: isNaN(rate) ? null : rate, pattern: pat.every(v => v == null) ? null : pat }] }] };
+    S.employees.push(e); Q.emp = ''; MODAL = null; save(true); render(); toast('Додано: ' + name);
+    setTimeout(() => $$('table.emp tbody tr').at(-1)?.scrollIntoView({ block: 'center' }), 0);
+  },
+  delEmp: el => {
+    const e = byId(S.employees, el.dataset.id); if (!e) return;
+    const used = S.absences.some(a => a.empId === e.id) || S.subs.some(s => s.empId === e.id || s.forEmpId === e.id);
+    if (!confirm(`Видалити ${e.name} з усіма посадами${used ? ', відсутностями та замінами' : ''}?\n\nЯкщо працівник звільнився — краще вкажіть дату «Звільнено», тоді старі місяці лишаться правильними.`)) return;
+    if (MODAL?.type === 'emp') MODAL = null;
+    S.employees = S.employees.filter(x => x !== e); S.absences = S.absences.filter(a => a.empId !== e.id); S.subs = S.subs.filter(s => s.empId !== e.id && s.forEmpId !== e.id);
+    for (const p of e.positions) for (const k of Object.keys(S.overrides)) if (k.startsWith(p.id + '|')) delete S.overrides[k];
+    save(true); render();
+  },
+  empUp: el => moveEmp(el.dataset.id, -1),
+  empDown: el => moveEmp(el.dataset.id, 1),
+  addPos: el => { const e = byId(S.employees, el.dataset.id); e.positions.push({ id: uid(), title: '', to: null, loads: [{ from: iso(CUR.y, CUR.m, 1), rate: null, pattern: null }] }); save(true); keepScroll(render); },
+  delPos: el => {
+    const [e, p] = findPos(el.dataset.id); if (!p) return;
+    if (e.positions.length === 1) return toast('У працівника має лишитись хоча б одна посада — видаліть працівника цілком');
+    if (!confirm(`Видалити посаду «${p.title || 'без назви'}» у ${e.name}?`)) return;
+    e.positions = e.positions.filter(x => x !== p); for (const k of Object.keys(S.overrides)) if (k.startsWith(p.id + '|')) delete S.overrides[k];
+    save(true); keepScroll(render);
+  },
+  patFrom: el => {
+    const [, p] = findPos(el.dataset.id), l = lastLoad(p);
+    const d = askDate('З якої дати діє новий графік?', iso(CUR.y, CUR.m, 1)); if (!d) return;
+    if (p.loads.some(x => x.from === d)) return toast('Запис з цієї дати вже є — просто змініть числа');
+    p.loads.push({ from: d, rate: l?.rate ?? null, pattern: l?.pattern ? [...l.pattern] : null });
+    save(true); keepScroll(render); toast(`Новий графік діє з ${fmtD(d)} — тепер змініть години`);
+  },
+  loadDel: el => {
+    const [, p] = findPos(el.dataset.id); if (!p || p.loads.length < 2) return;
+    p.loads = p.loads.filter(x => x.from !== el.dataset.from); save(true); keepScroll(render);
+  },
+  posClose: el => { const [, p] = findPos(el.dataset.id); const d = askDate('Посада закрита з дати (останній робочий день)', today()); if (!d) return; p.to = d; save(true); keepScroll(render); },
+  posReopen: el => { const [, p] = findPos(el.dataset.id); p.to = null; save(true); keepScroll(render); },
+  newYear: () => {
+    const y = new Date().getMonth() >= 7 ? new Date().getFullYear() : new Date().getFullYear() + 1;
+    const d = askDate('Дата початку нового навчального року', iso(y, 9, 1)); if (!d) return;
+    let n = 0;
+    for (const e of S.employees) { if (e.to && e.to < d) continue; for (const p of e.positions) { if (p.to && p.to < d) continue; const l = lastLoad(p); if (!l || l.from === d) continue; p.loads.push({ from: d, rate: l.rate, pattern: l.pattern ? [...l.pattern] : null }); n++; } }
+    save(true); render(); toast(`Графіки зафіксовано з ${fmtD(d)}: ${n}. Тепер міняйте години — минулі місяці не зміняться.`);
+  },
+  /* відсутності */
+  saveAbs: el => {
+    const P = el?.dataset.p || 'abs', g = id => $('#' + P + id), modal = P === 'mabs';
+    const empId = g('Emp').value, code = g('Code').value, from = g('From').value, open = g('Open').checked, to = open ? null : g('To').value, note = g('Note').value.trim();
+    if (!empId) return toast('Оберіть працівника');
+    if (!from) return toast('Вкажіть дату початку');
+    if (!open && !to) return toast('Вкажіть дату кінця або позначте «безстроково»');
+    if (to && to < from) return toast('Кінець раніше за початок');
+    /* захист від помилки: підозріло довгий період */
+    const days = to ? Math.round((Date.UTC(...parts(to).map((v, i) => i === 1 ? v - 1 : v)) - Date.UTC(...parts(from).map((v, i) => i === 1 ? v - 1 : v))) / 86400000) + 1 : Infinity;
+    if (!LONG_CODES.has(code) && (open || days > 31) && !confirm(`${code} — ${open ? 'безстроково' : days + ' днів (' + fmtD(from) + ' – ' + fmtD(to) + ')'}. Це точно правильно?`)) return;
+    if (LONG_CODES.has(code) && !open && days > 1100 && !confirm(`${code} на ${days} днів (до ${fmtD(to)}). Це точно правильно?`)) return;
+    let a = modal ? (MODAL?.editId ? byId(S.absences, MODAL.editId) : null) : (ABS_EDIT ? byId(S.absences, ABS_EDIT) : null);
+    const isNew = !a;
+    const clash = S.absences.find(x => x !== a && x.empId === empId && x.from <= (to || '9999') && (!x.to || x.to >= from));
+    if (clash && !confirm(`У цього працівника вже є відсутність ${clash.code} ${fmtD(clash.from)}–${clash.to ? fmtD(clash.to) : '…'}, періоди перетинаються.\n\nУ спільні дні в табелі буде код тієї, що почалась пізніше. Записати все одно?`)) return;
+    if (a) {
+      Object.assign(a, { empId, code, from, to, note });
+      /* заміни поза новим періодом більше не мають сенсу */
+      let cutN = 0; for (const s of subsOfAbs(a)) for (const d of Object.keys(s.days)) if (d < from || (to && d > to)) { delete s.days[d]; cutN++; }
+      if (cutN) toast(`Період змінено: прибрано ${cutN} ${plural(cutN, 'день', 'дні', 'днів')} замін поза ним`);
+    } else { a = { id: uid(), empId, code, from, to, note }; S.absences.push(a); }
+    ABS_EDIT = null; MODAL = null; POP = null; save(true);
+    if (subDates(a).length && !LONG_CODES.has(code) && ((modal && isNew) || (needsSubs(a) && confirm('Відсутність записано. Період припадає на навчальний рік, у працівника є уроки.\n\nВписати заміни зараз?')))) return startWizard(a);
+    keepScroll(render); toast('Відсутність збережено');
+  },
+  absEditModal: el => { const a = byId(S.absences, el.dataset.id); if (!a) return; POP = null; MODAL = { type: 'abs', editId: a.id, empId: a.empId, code: a.code, from: a.from, to: a.to, open: !a.to, note: a.note }; renderModal(); },
+  /* працівник вийшов: відсутність закінчується напередодні вибраної дати */
+  absEndBefore: el => {
+    const a = byId(S.absences, el.dataset.id), d = el.dataset.d; if (!a) return;
+    const end = addDays(d, -1);
+    if (end < a.from) { if (!confirm(`Відсутність починається ${fmtD(a.from)} — видалити її повністю?`)) return; S.subs = S.subs.filter(s => s.absId !== a.id); S.absences = S.absences.filter(x => x !== a); }
+    else { a.to = end; for (const s of subsOfAbs(a)) for (const k of Object.keys(s.days)) if (k > end) delete s.days[k]; }
+    POP = null; MODAL = null; save(true); keepScroll(render); toast(end < a.from ? 'Відсутність видалено' : `Відсутність закінчено ${fmtD(end)} — далі години за графіком`);
+  },
+  cellWizard: el => { const a = byId(S.absences, el.dataset.id); POP = null; if (a) startWizard(a); },
+  editAbs: el => { ABS_EDIT = el.dataset.id; WIZ = null; render(); scrollTo(0, 0); },
+  absCancel: () => { ABS_EDIT = null; render(); },
+  delAbs: el => {
+    const a = byId(S.absences, el.dataset.id); if (!a) return;
+    const subs = subsOfAbs(a);
+    if (!confirm(`Видалити відсутність ${a.code} ${fmtD(a.from)}–${a.to ? fmtD(a.to) : '…'}${subs.length ? ` разом із ${subs.length} ${plural(subs.length, 'рядком', 'рядками', 'рядками')} замін` : ''}?`)) return;
+    S.absences = S.absences.filter(x => x !== a); S.subs = S.subs.filter(s => s.absId !== a.id);
+    if (WIZ?.absId === a.id) WIZ = null;
+    if (MODAL?.type === 'cell' || MODAL?.type === 'abs') { MODAL = null; POP = null; }
+    save(true); keepScroll(render); toast('Відсутність видалено — години знову за графіком');
+  },
+  absWizard: el => { const a = byId(S.absences, el.dataset.id); if (a) startWizard(a); },
+  wizAdd: el => { const r = WIZ.rows[+el.dataset.i], used = r.items.reduce((x, it) => x + (+it.h || 0), 0); r.items.push({ empId: '', name: '', h: Math.max(0, r.planned - used) }); keepScroll(render); },
+  wizDel: el => { WIZ.rows[+el.dataset.i].items.splice(+el.dataset.j, 1); keepScroll(render); },
+  wizQuick: el => { const r = WIZ.rows[+el.dataset.i], used = r.items.reduce((x, it) => x + (+it.h || 0), 0); r.items = r.items.filter(it => it.empId || it.name); r.items.push({ empId: el.dataset.id, name: '', h: Math.max(0, r.planned - used) }); keepScroll(render); },
+  wizAssignAll: () => {
+    const id = $('#wizAll').value; if (!id || id === '*') return toast('Оберіть працівника зі списку');
+    WIZ.all = id; let skipped = 0, n = 0;
+    for (const r of WIZ.rows) {
+      const used = r.items.reduce((x, it) => x + (+it.h || 0), 0), left = r.planned - used; if (left <= 0) continue;
+      if (candLoad(id, r.date, WIZ.absId)?.abs) { skipped++; continue; }
+      const ex = r.items.find(it => it.empId === id); if (ex) ex.h = (+ex.h || 0) + left; else r.items.push({ empId: id, name: '', h: left }); n++;
+    }
+    keepScroll(render); toast(n ? `Поставлено на ${n} ${plural(n, 'день', 'дні', 'днів')}` + (skipped ? `; ${skipped} пропущено — сам відсутній` : '') : 'Вільних годин немає');
+  },
+  wizClear: () => { WIZ.rows.forEach(r => r.items = []); keepScroll(render); },
+  sideToggle: () => { const m = document.body.dataset.side === 'mini' ? '' : 'mini'; document.body.dataset.side = m; try { localStorage.setItem(LS + ':side', m); } catch (e) {} applyZoom(); },
+  zoomIn: () => setZoom(Math.min(2.5, Math.round((zoomValue() + 0.1) * 10) / 10)),
+  zoomOut: () => setZoom(Math.max(0.2, Math.round((zoomValue() - 0.1) * 10) / 10)),
+  zoom100: () => setZoom(1),
+  zoomSet: el => setZoom(el.dataset.z),
+  wizFill: () => { const f = WIZ.rows[0].items; if (!f.length) return toast('Спершу заповніть перший день'); WIZ.rows.forEach((r, i) => { if (i) r.items = f.map(it => ({ ...it, h: r.planned })); }); keepScroll(render); },
+  wizSave, wizCancel: () => { WIZ = null; MODAL = null; render(); },
+  /* календар */
+  calYear: el => { CALY += +el.dataset.v; render(); },
+  calToggle: el => {
+    const d = el.dataset.d, o = S.calendar[d];
+    if (o) delete S.calendar[d];
+    else if (isWorkingDay(d)) { const t = prompt(`${fmtD(d)} зробити неробочим днем. Назва (необов’язково):`, ''); if (t == null) return; S.calendar[d] = { kind: 'off', title: t.trim() }; }
+    else { const w = prompt(`${fmtD(d)} зробити робочим днем. За розкладом якого дня тижня працюємо? (Пн, Вт, Ср, Чт, Пт)`, 'Пн'); if (w == null) return; const as = Math.max(0, WD.indexOf(w.trim())); S.calendar[d] = { kind: 'work', as: as > 4 ? 0 : as }; }
+    save(true); keepScroll(render);
+  },
+  calDel: el => { delete S.calendar[el.dataset.d]; save(true); keepScroll(render); },
+  calClear: el => { if (!confirm(`Прибрати всі винятки ${el.dataset.y} року?`)) return; for (const k of Object.keys(S.calendar)) if (k.startsWith(el.dataset.y + '-')) delete S.calendar[k]; save(true); render(); },
+  /* дані */
+  pickXlsx: () => $('#fileXlsx').click(),
+  importClose: () => { IMPORT = null; render(); },
+  impMode: el => { IMPORT.mode = el.dataset.v; render(); },
+  importApply: applyImport,
+  openJson: () => $('#fileJson').click(),
+  backup: async () => {
+    download(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' }), `Табель копія ${today()}.json`);
+    lastExport = Date.now(); await kvPut('lastExport', lastExport).catch(() => {}); showBanner();
+  },
+  snooze: async () => { snoozeUntil = Date.now() + DAY; await kvPut('snooze', snoozeUntil).catch(() => {}); showBanner(); },
+  pickDir: async () => {
+    try {
+      const h = await showDirectoryPicker({ id: 'tabel', mode: 'readwrite', startIn: 'documents' });
+      DIR = h; dirOk = true; await kvPut('dir', h); await writeFolder(); render(); toast('Копії записуються в папку «' + h.name + '»');
+    } catch (e) { if (e.name !== 'AbortError') toast('Не вдалося вибрати папку'); }
+  },
+  reconnectDir: async () => {
+    try { dirOk = await DIR.requestPermission({ mode: 'readwrite' }) === 'granted'; if (dirOk) await writeFolder(); render(); }
+    catch (e) { toast('Папка недоступна — виберіть її знову'); }
+  },
+  forgetDir: async () => { DIR = null; dirOk = false; await kvDel('dir'); render(); },
+  copyDiag: async () => {
+    const t = `Табель, перевірка ПК\n${$('#diag')?.dataset.text || ''}\nДані: ${summary(S)}`;
+    try { await navigator.clipboard.writeText(t); toast('Скопійовано — надішліть цей текст'); } catch (e) { prompt('Скопіюйте цей текст:', t); }
+  },
+  snapNow: async () => { await snapshot('вручну'); renderSnaps(); toast('Точку відновлення створено'); },
+  snapRestore: async el => {
+    const s = (await listSnaps()).find(x => x.id === +el.dataset.id);
+    if (!s || !confirm(`Відновити дані станом на ${new Date(s.at).toLocaleString('uk-UA')} (${s.info})?\n\nПоточні дані спершу збережуться в копію.`)) return;
+    await takeData(s.data, 'копія від ' + new Date(s.at).toLocaleString('uk-UA')); render();
+  },
+  snapDownload: async el => {
+    const s = (await listSnaps()).find(x => x.id === +el.dataset.id);
+    if (s) download(new Blob([JSON.stringify(s.data, null, 1)], { type: 'application/json' }), `Табель копія ${new Date(s.at).toISOString().slice(0, 16).replace(/[T:]/g, '-')}.json`);
+  },
+  reset: async () => {
+    if (prompt('Щоб видалити всі дані, напишіть ТАК') !== 'ТАК') return;
+    await snapshot('перед очищенням');
+    S = blank(); IMPORT = null; WIZ = null; await flush(); go('help');
+  }
+};
+function moveEmp(id, dir) {
+  const list = emps(), i = list.findIndex(e => e.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  list.forEach((e, k) => e.order = k + 1);
+  [list[i].order, list[j].order] = [list[j].order, list[i].order];
+  save(true); keepScroll(render);
+}
+
+document.addEventListener('click', e => {
+  const tab = e.target.closest('[data-tab]'); if (tab) return go(tab.dataset.tab);
+  const g = e.target.closest('[data-go]'); if (g) return go(g.dataset.go);
+  const a = e.target.closest('[data-act]');
+  if (a && ACT[a.dataset.act]) return ACT[a.dataset.act](a);
+  const td = e.target.closest('td[data-cell], td[data-sub]');
+  if (td) return openPop(td);
+  if (e.target.id === 'modal' && (MODAL?.type === 'cell' || MODAL?.type === 'emp')) { POP = null; MODAL = null; render(); }
+});
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.target.matches('input, textarea, select')) { e.preventDefault(); ACT.undo(); }
+  if (e.key === 'Escape' && POP) closePop();
+  else if (e.key === 'Escape' && MODAL) ACT.modalClose();
+  if (e.key === 'Enter' && e.target.id === 'popH') ACT.popSet();
+  if (e.key === 'Enter' && e.target.matches('.drop')) ACT.pickXlsx();
+  if (e.key === 'Enter' && /^new(Name|Title|Rate)$/.test(e.target.id)) ACT.addEmp();
+});
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (el.dataset.q) {
+    const k = el.dataset.q;
+    Q[k] = el.value;
+    clearTimeout(el._t);
+    el._t = setTimeout(() => { const pos = el.selectionStart; render(); const n = $(`[data-q="${k}"]`); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }, 200);
+    return;
+  }
+  if (el.dataset.w) {
+    const [i, j, f] = el.dataset.w.split('|'), it = WIZ?.rows[+i]?.items[+j]; if (!it) return;
+    if (f === 'h') it.h = el.value === '' ? '' : +String(el.value).replace(',', '.');
+    else if (f === 'name') it.name = el.value;
+  }
+});
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (el.dataset.w) {
+    const [i, j, f] = el.dataset.w.split('|'), it = WIZ?.rows[+i]?.items[+j]; if (!it) return;
+    if (f === 'empId') { it.empId = el.value; if (el.value !== '*') it.name = ''; }
+    keepScroll(render);   // оновити «лишилось» і завантаженість
+    return;
+  }
+  const f = el.dataset.f; if (!f) return;
+  const id = el.dataset.id, v = el.value, num = v === '' ? null : Math.max(0, +String(v).replace(',', '.'));
+  let redraw = false;
+  switch (f) {
+    case 'cur.m': setCur(CUR.y, +v); redraw = true; break;
+    case 'cur.y': if (+v >= 2000 && +v <= 2100) { setCur(+v, CUR.m); redraw = true; } break;
+    case 'print.emptyCols': S.print.emptyCols = el.checked; redraw = true; break;
+    case 'set.holidays': S.holidays = el.checked; redraw = true; break;
+    case 'set.school': S.school = v.trim(); break;
+    case 'sign.deputyTitle': case 'sign.deputyName': case 'sign.directorTitle': case 'sign.directorName': S.sign[f.slice(5)] = v.trim(); break;
+    case 'sy.from': case 'sy.to': if (/^\d{2}-\d{2}$/.test(v.trim())) S.schoolYear[f.slice(3)] = v.trim(); else el.value = S.schoolYear[f.slice(3)]; break;
+    case 'emp.name': { const x = byId(S.employees, id); if (v.trim()) x.name = v.trim(); else el.value = x.name; break; }
+    case 'emp.from': byId(S.employees, id).from = v || null; redraw = true; break;
+    case 'emp.to': byId(S.employees, id).to = v || null; redraw = true; break;
+    case 'pos.title': findPos(id)[1].title = v.trim(); break;
+    case 'pos.rate': { const [, p] = findPos(id); const l = lastLoad(p); if (l) l.rate = num; redraw = true; break; }
+    case 'pos.pat': {
+      const [, p] = findPos(id); let l = lastLoad(p);
+      if (!l) { l = { from: iso(CUR.y, CUR.m, 1), rate: null, pattern: null }; p.loads.push(l); }
+      if (!l.pattern) l.pattern = [null, null, null, null, null];
+      l.pattern[+el.dataset.wd] = num;
+      if (l.pattern.every(x => x == null)) l.pattern = null;
+      redraw = true; break;
+    }
+    case 'sub.forLabel': byId(S.subs, id).forLabel = v.trim(); break;
+    case 'abs.ym': ABS_FILTER.ym = v; return render();
+    case 'abs.emp': ABS_FILTER.emp = v; return render();
+    case 'cal.as': S.calendar[id].as = +v; break;
+    case 'cal.title': S.calendar[id].title = v.trim(); break;
+    case 'imp.pick': IMPORT.pick = +v; return render();
+  }
+  save();
+  if (redraw) keepScroll(render); else renderNav();
+});
+$('#fileXlsx').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) openXlsxFile(f); });
+$('#fileJson').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) openJsonFile(f); });
+addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('dragging'); });
+addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('dragging'); });
+addEventListener('drop', e => {
+  e.preventDefault(); document.body.classList.remove('dragging');
+  const f = e.dataTransfer?.files?.[0]; if (!f) return;
+  if (/\.json$/i.test(f.name)) openJsonFile(f); else if (/\.xlsx$/i.test(f.name)) openXlsxFile(f); else toast('Потрібен файл .xlsx або .json');
+});
+/* Ctrl + коліщатко над табелем — масштаб табеля, а не всієї сторінки */
+addEventListener('wheel', e => { if (!e.ctrlKey || !e.target.closest?.('.sheetwrap')) return; e.preventDefault(); setZoom(Math.max(0.2, Math.min(2.5, Math.round((zoomValue() + (e.deltaY < 0 ? 0.1 : -0.1)) * 10) / 10))); }, { passive: false });
+addEventListener('resize', () => applyZoom());
+try { document.body.dataset.side = localStorage.getItem(LS + ':side') || ''; } catch (e) {}
+addEventListener('beforeprint', () => { closePop(); MODAL = null; WIZ = null; if (Q.tabel) Q.tabel = ''; if (TAB !== 'tabel') go('tabel'); else render(); });
+/* підсвічення рядка працівника (обидві посади) при наведенні */
+let HL = '';
+document.addEventListener('mouseover', e => {
+  const id = e.target.closest?.('.sheet tbody tr[data-e]')?.dataset.e || '';
+  if (id === HL) return; HL = id;
+  $$('.sheet tr.hl').forEach(x => x.classList.remove('hl'));
+  if (id) $$(`.sheet tr[data-e="${id}"]`).forEach(x => x.classList.add('hl'));
+});
+
+/* логотип: перший файл, який знайдеться поруч із програмою; якщо жодного — лишається стандартний значок */
+const LOGOS = ['logo.gif', 'logo.png', 'logo.jpg', 'logo.jpeg', 'logo.webp', 'logo.svg'];
+$('#logoImg').addEventListener('error', e => {
+  const i = LOGOS.indexOf(e.target.getAttribute('src')) + 1;
+  if (i && i < LOGOS.length) e.target.src = LOGOS[i]; else e.target.remove();
+});
+addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
+addEventListener('pagehide', () => flush());
+
+(async () => {
+  try {
+    const d = await kvGet('data');
+    if (valid(d)) S = d;
+    else { S = blank(); FIRST = true; MODAL = { type: 'first' }; }   // у базу не пишемо, доки користувач не вибере
+    const last = (await listSnaps())[0];
+    if (!last || Date.now() - last.at > 30 * 60000) await snapshot('при відкритті');
+    lastExport = await kvGet('lastExport') || 0;
+    snoozeUntil = await kvGet('snooze') || 0;
+    DIR = await kvGet('dir') || null;
+    if (DIR) dirOk = await DIR.queryPermission({ mode: 'readwrite' }) === 'granted';
+    savedAt = S.updated || 0;
+    lastState = JSON.stringify(S);
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
+    /* приватне вікно: браузер дає дуже малу квоту сховища */
+    try { const est = await navigator.storage?.estimate?.(); EPHEMERAL = !!(est && est.quota && est.quota < 300 * 1048576); } catch (e) {}
+  } catch (e) { saveErr = 'База даних недоступна — відкрийте програму в Chrome або Edge'; if (!S.employees.length) { S = blank(); FIRST = true; MODAL = { type: 'first' }; } }
+  render();
+})();
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
