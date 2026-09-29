@@ -458,7 +458,7 @@ const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10;
 
 /* окремі ключі — не перетинаються з іншими програмами школи */
 const LS = 'shkola-tabel-v1';
-const VERSION = '1.14 · 29.09.2026';
+const VERSION = '1.15 · 29.09.2026';
 
 const MONTHS = ['січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад', 'грудень'];
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
@@ -1951,7 +1951,7 @@ ${canDir ? `<section class="card"><header><h2>Автокопії в папку</
   <p class="sub">${DIR ? `Папка «${esc(DIR.name)}»${dirOk ? '' : ' — потрібен дозвіл'}. Після кожної зміни файл «Табель — поточні дані.json» оновлюється, плюс копія по днях.` : 'Виберіть папку (наприклад, на флешці або в хмарній теці) — програма сама писатиме туди копії.'}</p></section>` : ''}
 <section class="card"><header><h2>Точки відновлення</h2><span class="sp"></span><button class="btn small" data-act="snapNow">${ic('plus')} Створити зараз</button></header>
   <p class="sub">Створюються самі: при відкритті програми, перед імпортом, відновленням і очищенням. Зберігаються останні ${KEEP_SNAPS}.</p><div id="snaps"><p class="muted">Завантаження…</p></div></section>
-<section class="card"><header><h2>Перевірка програми</h2><span class="sp"></span><button class="btn small" data-act="copyDiag">${ic('copy')} Скопіювати для підтримки</button></header><div id="diag"><p class="muted">Перевірка…</p></div></section>
+<section class="card"><header><h2>Перевірка програми</h2><span class="sp"></span><button class="btn small" data-act="checkUpdate" title="Завантажити найсвіжішу версію програми з сайту. Дані не зникнуть">${ic('restore')} Перевірити оновлення</button><button class="btn small" data-act="copyDiag">${ic('copy')} Скопіювати для підтримки</button></header><div id="diag"><p class="muted">Перевірка…</p></div></section>
 <section class="card"><header><h2>Почати з нуля</h2><span class="sp"></span><button class="btn danger" data-act="reset">${ic('trash')} Видалити всі дані</button></header><p class="sub">Перед видаленням створюється точка відновлення.</p></section>`;
 function importHtml() {
   const sh = IMPORT.sheets[IMPORT.pick];
@@ -2164,6 +2164,14 @@ const ACT = {
     if (!prev) return toast('Немає що скасовувати');
     S = JSON.parse(prev); lastState = prev;
     flush(); render(); toast('Останню зміну скасовано');
+  },
+  /* оновлення програми: дані живуть в IndexedDB, тут чистимо лише кеш файлів */
+  checkUpdate: async () => {
+    toast('Шукаю нову версію…');
+    await flush();
+    try { const regs = await navigator.serviceWorker?.getRegistrations?.() || []; for (const r of regs) { await r.update().catch(() => {}); } } catch (e) {}
+    try { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); } catch (e) {}
+    setTimeout(() => location.reload(), 400);
   },
   clearQ: el => { Q[el.dataset.k] = ''; render(); setTimeout(() => $(`[data-q="${el.dataset.k}"]`)?.focus(), 0); },
   pinCol: el => { const i = +el.dataset.i; PIN.cols.has(i) ? PIN.cols.delete(i) : PIN.cols.add(i); keepScroll(render); },
@@ -2527,18 +2535,30 @@ document.addEventListener('dragstart', e => {
   ORD_DRAG = r.dataset.id; r.classList.add('drag');
   try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ORD_DRAG); } catch (_) {}
 });
-document.addEventListener('dragend', () => { ORD_DRAG = null; ordClear(); document.body.classList.remove('dragging'); });
+document.addEventListener('dragend', () => { ORD_DRAG = null; ordScrollStop(); ordClear(); document.body.classList.remove('dragging'); });
+/* підкручування списку, коли тягнеш рядок до краю екрана */
+let ordScrollT = null, ordScrollV = 0;
+function ordScrollStop() { clearInterval(ordScrollT); ordScrollT = null; ordScrollV = 0; }
+function ordAutoScroll(y) {
+  const box = $('#modal'); if (!box) return;
+  const r = box.getBoundingClientRect(), zone = 90, max = 26;
+  const top = y - r.top, bottom = r.bottom - y;
+  ordScrollV = top < zone ? -Math.ceil((zone - top) / zone * max) : bottom < zone ? Math.ceil((zone - bottom) / zone * max) : 0;
+  if (!ordScrollV) return ordScrollStop();
+  if (!ordScrollT) ordScrollT = setInterval(() => { if (!ORD_DRAG || !ordScrollV) return ordScrollStop(); box.scrollTop += ordScrollV; }, 16);
+}
 document.addEventListener('dragover', e => {
   if (!ORD_DRAG) return;
-  const r = e.target.closest?.('.ord'); if (!r) return;
   e.preventDefault(); e.stopPropagation();
+  ordAutoScroll(e.clientY);                       // край екрана — список їде сам
+  const r = e.target.closest?.('.ord'); if (!r) return;
   const b = r.getBoundingClientRect(), after = e.clientY > b.top + b.height / 2;
   ordClear(); $$('.ord').forEach(x => x.classList.toggle('drag', x.dataset.id === ORD_DRAG));
   r.classList.add(after ? 'over-a' : 'over-b');
 });
 document.addEventListener('drop', e => {
   if (!ORD_DRAG) return;
-  const r = e.target.closest?.('.ord'); const id = ORD_DRAG; ORD_DRAG = null;
+  const r = e.target.closest?.('.ord'); const id = ORD_DRAG; ORD_DRAG = null; ordScrollStop();
   if (!r || r.dataset.id === id) { ordClear(); return; }
   e.preventDefault(); e.stopPropagation();
   const b = r.getBoundingClientRect(), after = e.clientY > b.top + b.height / 2;
@@ -2605,7 +2625,7 @@ addEventListener('pagehide', () => flush());
   } catch (e) { saveErr = 'База даних недоступна — відкрийте програму в Chrome або Edge'; if (!S.employees.length) { S = blank(); FIRST = true; MODAL = { type: 'first' }; } }
   render();
 })();
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').then(r => { r.update().catch(() => {}); setInterval(() => r.update().catch(() => {}), 30 * 60000); }).catch(() => {});
 </script>
 </body>
 </html>

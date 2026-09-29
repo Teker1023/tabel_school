@@ -1,6 +1,6 @@
 // Кешує програму, щоб вона відкривалась без інтернету.
 // Після зміни файлів програми збільште номер версії.
-const CACHE = 'tabel-v2';
+const CACHE = 'tabel-v3';
 const FILES = ['./', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -24,7 +24,8 @@ self.addEventListener('fetch', e => {
   if (e.request.mode === 'navigate') {
     e.respondWith((async () => {
       const cache = await caches.open(CACHE);
-      const net = fetch(e.request).then(r => {
+      /* cache: 'reload' — не брати сторінку зі звичайного кешу браузера, інакше оновлення «не доходить» */
+      const net = fetch(e.request, { cache: 'reload' }).then(r => {
         if (r.ok && !r.redirected) cache.put('./', r.clone());
         return r;
       });
