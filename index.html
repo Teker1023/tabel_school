@@ -278,11 +278,27 @@ table.sheet{border-collapse:separate;border-spacing:0;font:14px/1.15 "Times New 
 .sheet thead th.sticky1,.sheet thead th.sticky2{z-index:3;background:#cfd9e8}
 .sheet tr.total td.sticky1,.sheet tr.total td.sticky2,.sheet tr.razom td.sticky1,.sheet tr.razom td.sticky2{background:#c3cfe2}
 .sheet .empty-col{color:#bbb}
-.sheet-foot{display:grid;grid-template-columns:1fr 1fr;gap:10px 30px;margin-top:18px;font:13px/1.35 "Times New Roman",serif;max-width:1000px}
-.sheet-foot .sig{grid-column:1 / -1;display:flex;gap:40px;justify-content:space-between;font-size:14px;margin-bottom:6px}
+.sheet-foot{display:grid;grid-template-columns:1fr 1fr;gap:10px 30px;margin-top:34px;font:13px/1.35 "Times New Roman",serif;max-width:1000px}
+.sheet-foot .sig{grid-column:1 / -1;display:flex;align-items:baseline;font-size:14px;margin-bottom:22px}
+.sheet-foot .sig .st{flex:0 0 auto;min-width:250px}
+.sheet-foot .sig .gap{flex:0 0 150px}
+.sheet-foot .sig .sn{white-space:nowrap}
+.sheet-foot .sig:last-of-type{margin-bottom:26px}
 .sheet-foot table{border-collapse:collapse;width:100%}
 .sheet-foot td{padding:1px 6px;vertical-align:top;font-size:12px}
 .sheet-foot td.code{font-weight:700;white-space:nowrap;width:34px}
+.ordlist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.ord{display:flex;align-items:center;gap:10px;padding:5px 10px;border-bottom:1px solid var(--line);background:var(--surface)}
+.ord:last-child{border-bottom:0}
+.ord[data-focus]{background:var(--accent-soft)}
+.ord.drag{opacity:.4}
+.ord.over-b{box-shadow:inset 0 3px 0 var(--accent)}
+.ord.over-a{box-shadow:inset 0 -3px 0 var(--accent)}
+.ord .grip{color:var(--muted);cursor:grab;display:inline-grid;place-items:center;width:22px;flex:none}
+.ord .ordn{width:64px;min-height:30px;padding:2px 6px;text-align:center;flex:none}
+.ord .ordnm{font-weight:600;flex:0 0 200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ord .ordps{color:var(--muted);font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ord .ordbtn{white-space:nowrap;flex:none}
 .cellpop{position:absolute;z-index:50;background:var(--surface);color:var(--ink);border:1px solid var(--line2);border-radius:12px;box-shadow:0 10px 30px rgba(16,24,40,.2);padding:12px;display:flex;flex-direction:column;gap:8px;min-width:260px;font:14px var(--body)}
 .cellpop .why{font-size:12.5px;color:var(--muted)}
 .cellpop .codes{display:flex;flex-wrap:wrap;gap:4px}
@@ -396,8 +412,11 @@ body[data-side="mini"] .side-toggle svg{transform:rotate(180deg)}
   .sheet tr.total td,.sheet tr.razom td,.sheet tr.band td{background:#fff!important;height:var(--rh,2.5mm);border:0.2mm solid #000}
   .sheet tr.band td{font-size:var(--fs,5.6pt);letter-spacing:.2em}
   .sheet .empty-col{color:#000}
-  .sheet-foot{max-width:none;width:100%;margin-top:2mm;font-size:var(--fs,5.6pt);gap:1mm 6mm;break-inside:avoid}
-  .sheet-foot .sig{font-size:calc(var(--fs,5.6pt) * 1.25);margin-bottom:1mm}
+  .sheet-foot{max-width:none;width:100%;margin-top:9mm;font-size:var(--fs,5.6pt);gap:1mm 6mm;break-inside:avoid}
+  .sheet-foot .sig{font-size:calc(var(--fs,5.6pt) * 1.25);margin-bottom:6mm}
+  .sheet-foot .sig .st{min-width:52mm}
+  .sheet-foot .sig .gap{flex:0 0 36mm}
+  .sheet-foot .sig:last-of-type{margin-bottom:8mm}
   .sheet-foot td{font-size:var(--fs,5.6pt);padding:0 1mm}
   .sheet .c-ВХ,.sheet .c-ВП,.sheet .c-ДД,.sheet .c-НА,.sheet .c-ТН{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .sheet col.cn{width:var(--w-cn)} .sheet col.cname{width:var(--w-cname)} .sheet col.cpost{width:var(--w-cpost)} .sheet col.crate{width:var(--w-crate)} .sheet col.cd{width:var(--w-cd)} .sheet col.ct{width:var(--w-ct)} .sheet col.cs{width:var(--w-cs)} .sheet col.ce{width:var(--w-ce)}
@@ -439,7 +458,7 @@ const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10;
 
 /* окремі ключі — не перетинаються з іншими програмами школи */
 const LS = 'shkola-tabel-v1';
-const VERSION = '1.13 · 22.09.2026';
+const VERSION = '1.14 · 29.09.2026';
 
 const MONTHS = ['січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад', 'грудень'];
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
@@ -1185,11 +1204,12 @@ function tabelSheet(M) {
   const lastSub = rows.length;
   const razCells = sumRow('Разом', firstSub, lastSub, XF.label); setVals(razCells, addTotals(subRowsAll));
   push(46.2, razCells);
-  push(20, []);
-  const sigR = push(46.2, [cell(1, `${S.sign.deputyTitle}                            ${S.sign.deputyName}`, XF.sig), cell(12, LEGEND_L[0] ? CODE_DESC[LEGEND_L[0]] : '', XF.legend), cell(22, LEGEND_L[0], XF.legendCode), cell(24, CODE_DESC[LEGEND_R[0]], XF.legend), cell(40, LEGEND_R[0], XF.legendCode)]);
-  for (let i = 1; i < 7; i++) {
+  /* відступ від табеля до підписів */
+  push(20, []); push(28, []); push(28, []);
+  const sigR = push(46.2, [cell(1, S.sign.deputyTitle, XF.sig), cell(6, S.sign.deputyName, XF.sig), cell(12, LEGEND_L[0] ? CODE_DESC[LEGEND_L[0]] : '', XF.legend), cell(22, LEGEND_L[0], XF.legendCode), cell(24, CODE_DESC[LEGEND_R[0]], XF.legend), cell(40, LEGEND_R[0], XF.legendCode)]);
+  for (let i = 1; i < 8; i++) {
     const c = [];
-    if (i === 2) c.push(cell(1, S.sign.directorTitle, XF.sig), cell(6, S.sign.directorName, XF.sig));
+    if (i === 3) c.push(cell(1, S.sign.directorTitle, XF.sig), cell(6, S.sign.directorName, XF.sig));
     if (LEGEND_L[i]) c.push(cell(12, CODE_DESC[LEGEND_L[i]], XF.legend), cell(22, LEGEND_L[i], XF.legendCode));
     if (LEGEND_R[i]) c.push(cell(24, CODE_DESC[LEGEND_R[i]], XF.legend), cell(40, LEGEND_R[i], XF.legendCode));
     push(46.2, c);
@@ -1260,6 +1280,7 @@ const ICONS = {
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
   search: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.3-4.3"/>',
   up: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  grip: '<circle cx="9" cy="6" r="1.1"/><circle cx="9" cy="12" r="1.1"/><circle cx="9" cy="18" r="1.1"/><circle cx="15" cy="6" r="1.1"/><circle cx="15" cy="12" r="1.1"/><circle cx="15" cy="18" r="1.1"/>',
   down: '<path d="M12 5v14M5 12l7 7 7-7"/>',
   swap: '<path d="M4 7h12M12 3l4 4-4 4M20 17H8M12 13l-4 4 4 4"/>',
   excel: '<path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 12l6 6M15 12l-6 6"/>'
@@ -1388,6 +1409,7 @@ V.tabel = () => {
      <span class="seg zoomseg" title="Масштаб табеля на екрані (також Ctrl + коліщатко миші над таблицею)"><button data-act="zoomOut">−</button><button data-act="zoom100" id="zoomLbl" title="Поточний масштаб; натисніть — 100 %">100%</button><button data-act="zoomIn">+</button><button data-act="zoomSet" data-z="w" aria-pressed="${ZOOM === 'w'}">По ширині</button><button data-act="zoomSet" data-z="all" aria-pressed="${ZOOM === 'all'}">Увесь табель</button></span>
      ${PIN.cols.size + PIN.rows.size ? `<button class="btn small" data-act="pinClear">${ic('x')} Зняти підсвічення</button>` : ''}
      <span class="hint">Днів явок: <b>${M.total.days}</b> · Годин: <b>${fmt(M.total.sum)}</b> · Робочих днів у місяці: <b>${M.dates.filter(isWorkingDay).length}</b></span>
+     <button class="btn small" data-act="orderOpen" title="Змінити порядок працівників у табелі (перетягуванням або номером)">${ic('grip')} Порядок рядків</button>
      <button class="btn small" data-act="addSubRow">${ic('plus')} Рядок заміни</button>
    </div>
    <section class="card" style="padding:0;overflow:hidden">${sheetHtml(M)}</section>
@@ -1423,7 +1445,7 @@ function sheetHtml(M) {
   for (const r of M.rows) {
     if (found && !found.has(r.emp.id)) continue;
     const rs = r.span > 1 ? ` rowspan="${r.span}"` : '';
-    body += `<tr data-e="${r.emp.id}"${r.emp.order % 2 ? '' : ' class="alt"'}>` + (r.first ? `<td class="n sticky1"${rs}>${r.num}</td><td class="name l sticky2"${rs} data-act="pinRow" data-id="${r.emp.id}" title="Натисніть, щоб закріпити підсвічення рядка">${esc(r.emp.name)}</td>` : '') +
+    body += `<tr data-e="${r.emp.id}"${r.emp.order % 2 ? '' : ' class="alt"'}>` + (r.first ? `<td class="n sticky1"${rs} data-act="orderOpen" data-id="${r.emp.id}" title="Натисніть, щоб змінити порядок рядків у табелі">${r.num}</td><td class="name l sticky2"${rs} data-act="pinRow" data-id="${r.emp.id}" title="Натисніть, щоб закріпити підсвічення рядка">${esc(r.emp.name)}</td>` : '') +
       (r.first || !r.sameTitle ? `<td class="post l"${r.sameTitle ? rs : ''}>${esc(r.pos.title)}</td>` : '') +
       `<td class="rate">${r.rate != null ? fmt(r.rate) : ''}</td>` + fixT(dayCells(r.cells, r.pos.id, 'cell'), r.tot) + totCells(r.tot) + '</tr>';
   }
@@ -1438,11 +1460,11 @@ function sheetHtml(M) {
   if (!M.subRows.length) body += `<tr><td class="sticky1"></td><td class="name l sticky2 muted" style="font-weight:400">— замін немає —</td><td></td><td></td>${'<td></td>'.repeat(32)}${totCells({ days: 0, sum: 0, h1: 0, c: {} })}</tr>`;
   body += sumRow('Разом', M.subTotal, 'razom');
   const leg = (codes, i) => codes[i] ? `<td>${esc(CODE_DESC[codes[i]])}</td><td class="code">${codes[i]}</td>` : '<td></td><td></td>';
-  const foot = `<div class="sheet-foot"><div class="sig"><span>${esc(S.sign.deputyTitle)} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${esc(S.sign.deputyName)}</span></div><div class="sig"><span>${esc(S.sign.directorTitle)} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${esc(S.sign.directorName)}</span></div>
+  const foot = `<div class="sheet-foot"><div class="sig"><span class="st">${esc(S.sign.deputyTitle)}</span><span class="gap"></span><span class="sn">${esc(S.sign.deputyName)}</span></div><div class="sig"><span class="st">${esc(S.sign.directorTitle)}</span><span class="gap"></span><span class="sn">${esc(S.sign.directorName)}</span></div>
     <table>${LEGEND_L.map((_, i) => `<tr>${leg(LEGEND_L, i)}</tr>`).join('')}</table><table>${LEGEND_L.map((_, i) => `<tr>${leg(LEGEND_R, i)}</tr>`).join('')}</table></div>`;
   const W = { cn: 2.1, cname: 12.4, cpost: 8.6, crate: 3, cd: 1.72, ct: 2.2, cs: 2.05, ce: 1.2 }, wsum = W.cn + W.cname + W.cpost + W.crate + 31 * W.cd + W.ct + 9 * W.cs + (EC ? 6 * W.ce : 0);
   const nrows = (found ? [...M.rows].filter(r => found.has(r.emp.id)).length : M.rows.length) + Math.max(1, M.subRows.length) + 3, land = S.print.orientation === 'landscape';
-  const rh = land ? 3.2 : Math.max(2.15, Math.min(3.6, 216 / nrows)), fs = land ? 7 : Math.min(7.6, rh * 2.2);
+  const rh = land ? 3.2 : Math.max(2.15, Math.min(3.6, 198 / nrows)), fs = land ? 7 : Math.min(7.6, rh * 2.2);
   const vars = Object.entries(W).map(([k, v]) => `--w-${k}:${(v / wsum * 100).toFixed(3)}%`).join(';') + `;--rh:${rh.toFixed(2)}mm;--fs:${fs.toFixed(2)}pt;--fh:${(fs * 0.8).toFixed(2)}pt;--fn:${(fs * 0.98).toFixed(2)}pt;--fp:${(fs * 0.8).toFixed(2)}pt;--rot:${land ? 18 : 16}mm`;
   return `<div class="sheetwrap"><div class="sheet-page" data-cols="${ncols}" style="${vars}">
     <div class="sheet-head"><div>Підприємство: ${esc(S.school)}</div><div><div class="t1">Т А Б Е Л Ь</div><div class="t2">використання робочого часу за ${MONTHS[M.m - 1]} ${M.y} року</div></div></div>
@@ -1536,7 +1558,7 @@ V.emp = () => {
       (j ? '' : `<td${rs} style="white-space:nowrap;text-align:right"><button class="x plain" data-act="empUp" data-id="${e.id}" title="Вище"${i === 0 ? ' disabled' : ''}>${ic('up')}</button><button class="x plain" data-act="empDown" data-id="${e.id}" title="Нижче"${i === list.length - 1 ? ' disabled' : ''}>${ic('down')}</button> <button class="btn small" data-act="empCard" data-id="${e.id}" title="Дати прийняття/звільнення, зміна графіка з дати, посади, видалення">Картка</button></td>`) + '</tr>';
   }).join('')).join('');
   return pageHead('Працівники', 'Години по днях тижня правляться прямо в таблиці — з них складається табель кожного місяця. Усе інше (прийнято/звільнено, зміна графіка з дати, посади) — у «Картці».',
-    `<button class="btn primary" data-act="empAddOpen">${ic('plus')} Додати працівника</button><button class="btn" data-act="newYear" title="Зафіксувати поточні графіки з 1 вересня нового навчального року: далі змінюйте їх, не зачіпаючи минулі місяці">${ic('calendar')} Новий навчальний рік…</button>`) +
+    `<button class="btn primary" data-act="empAddOpen">${ic('plus')} Додати працівника</button><button class="btn" data-act="orderOpen" title="Порядок рядків у табелі: перетягуванням або номером">${ic('grip')} Порядок рядків…</button><button class="btn" data-act="newYear" title="Зафіксувати поточні графіки з 1 вересня нового навчального року: далі змінюйте їх, не зачіпаючи минулі місяці">${ic('calendar')} Новий навчальний рік…</button>`) +
   posTitlesList() + `<div class="toolbar">${searchBox('emp', 'Пошук за прізвищем або посадою')}<span class="sp"></span><span class="hint">${list.length} з ${S.employees.length}</span></div>
    <div class="tblwrap"><table class="tbl emp"><thead><tr><th class="num">№</th><th>Прізвище, ініціали</th><th>Посада</th><th class="c">Ставка</th><th class="c">Пн</th><th class="c">Вт</th><th class="c">Ср</th><th class="c">Чт</th><th class="c">Пт</th><th class="c">Разом</th><th class="num">Діє з</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="12" class="muted">Нікого не знайдено</td></tr>'}</tbody></table></div>`;
 };
@@ -1551,6 +1573,30 @@ function empCardHtml() {
     <div class="row"><button class="btn small" data-act="addPos" data-id="${e.id}">${ic('plus')} Ще одна посада</button></div>
     ${abs.length ? `<div class="field">Відсутності<div>${abs.map(a => `${codePill(a.code)} ${fmtD(a.from)} – ${a.to ? fmtD(a.to) : 'безстроково'} <button class="btn small ghost" data-act="absEditModal" data-id="${a.id}">змінити</button> <button class="x" data-act="delAbs" data-id="${a.id}" title="Видалити відсутність">${ic('trash')}</button>`).join('<br>')}</div></div>` : ''}
     <div class="row"><button class="btn danger" data-act="delEmp" data-id="${e.id}">${ic('trash')} Видалити працівника</button><span class="sp"></span><button class="btn primary" data-act="modalClose">Готово</button></div></div>`;
+}
+/* ---------- порядок рядків у табелі ---------- */
+function orderHtml() {
+  const list = emps(), n = list.length;
+  const row = (e, i) => `<div class="ord" draggable="true" data-id="${e.id}"${MODAL.focus === e.id ? ' data-focus="1"' : ''}>
+      <span class="grip" title="Перетягніть, щоб перемістити">${ic('grip')}</span>
+      <input class="ordn" type="number" min="1" max="${n}" value="${i + 1}" data-f="emp.pos" data-id="${e.id}" title="Впишіть номер і натисніть Enter — рядок стане на це місце">
+      <span class="ordnm">${esc(e.name)}</span>
+      <span class="ordps">${esc(e.positions.map(p => p.title).filter(Boolean).join(' · '))}</span>
+      <span class="ordbtn"><button class="x plain" data-act="empUp" data-id="${e.id}" title="Вище"${i === 0 ? ' disabled' : ''}>${ic('up')}</button><button class="x plain" data-act="empDown" data-id="${e.id}" title="Нижче"${i === n - 1 ? ' disabled' : ''}>${ic('down')}</button></span>
+    </div>`;
+  return `<div class="mbox center" style="width:min(880px,100%)">
+    <header><h2>Порядок рядків у табелі</h2><span class="sp"></span><button class="x plain" data-act="modalClose" title="Закрити">${ic('x')}</button></header>
+    <p class="hint">Перетягніть рядок за ручку або натисніть стрілки. Щоб перенести далеко (наприклад, поставити вчителя у свій блок) — впишіть номер і натисніть Enter. Порядок зберігається одразу й діє в табелі, у друку та в Excel; години, відсутності й заміни від цього не змінюються.</p>
+    <div class="toolbar" style="margin:0"><div class="search" style="min-width:280px">${ic('search')}<input data-ordq="1" placeholder="Знайти працівника"></div><span class="sp"></span><span class="hint">${n} ${plural(n, 'працівник', 'працівники', 'працівників')}</span></div>
+    <div class="ordlist">${list.map(row).join('')}</div>
+    <div class="row"><button class="btn primary" data-act="modalClose">Готово</button></div></div>`;
+}
+function filterOrd(q) {
+  const n = normName(q);
+  $$('.ord').forEach(r => {
+    const t = normName(r.querySelector('.ordnm')?.textContent + ' ' + r.querySelector('.ordps')?.textContent);
+    r.hidden = !!n && !t.includes(n);
+  });
 }
 function empAddHtml() {
   return `<div class="mbox center" style="width:min(720px,100%)"><header><h2>Новий працівник</h2><span class="sp"></span><button class="x plain" data-act="modalClose" title="Закрити">${ic('x')}</button></header>
@@ -1668,7 +1714,7 @@ function firstHtml() {
 function renderModal() {
   const el = $('#modal'); if (!el) return;
   const t = MODAL?.type;
-  const h = !t ? '' : t === 'first' ? firstHtml() : t === 'wiz' && WIZ ? wizardHtml() : t === 'abs' ? absModalHtml() : t === 'cell' && POP ? cellModalHtml() : t === 'emp' ? posTitlesList() + empCardHtml() : t === 'empAdd' ? posTitlesList() + empAddHtml() : '';
+  const h = !t ? '' : t === 'first' ? firstHtml() : t === 'wiz' && WIZ ? wizardHtml() : t === 'abs' ? absModalHtml() : t === 'cell' && POP ? cellModalHtml() : t === 'emp' ? posTitlesList() + empCardHtml() : t === 'empAdd' ? posTitlesList() + empAddHtml() : t === 'order' ? orderHtml() : '';
   el.hidden = !h; el.innerHTML = h; document.body.style.overflow = h ? 'hidden' : '';
 }
 function wizSave() {
@@ -2048,7 +2094,9 @@ async function importAll(kind) {
   /* історія: ті, кого немає в пізніших даних, працювали до кінця останнього імпортованого місяця */
   if (kind === 'history') for (const e of S.employees) { if (created.has(e.id) && !e.to) e.to = lastEnd; for (const p of e.positions) if (p._new && !e.to && !p.to && !hasLaterPos(p, lastEnd)) p.to = lastEnd; }
   for (const e of S.employees) for (const p of e.positions) delete p._new;
-  S.employees.forEach((e, i) => e.order = i + 1);
+  /* порядок рядків: з чистого аркуша — як у файлі; при доімпорті історії наявний порядок лишається, нові йдуть у кінець */
+  if (kind !== 'history') S.employees.forEach((e, i) => e.order = i + 1);
+  else { let mx = Math.max(0, ...S.employees.filter(e => !created.has(e.id)).map(e => e.order || 0)); S.employees.forEach(e => { if (created.has(e.id)) e.order = ++mx; }); }
   pinCells(all);
   /* контроль: після закріплення не має лишитись жодної розбіжності з файлом */
   let bad = 0; for (const [k, kp, p, sh] of all) p.cells.forEach((raw, i) => { if (cellValue(k, kp, iso(sh.y, sh.m, i + 1)) !== (raw == null ? '' : raw)) bad++; });
@@ -2066,6 +2114,7 @@ V.help = () => pageHead('Як працює програма', '') + `
   ${how('Наступні місяці', 'Графіки зберігаються в картках працівників, тому жовтень, листопад і далі складаються самі. Якщо у когось змінюються години — у «Працівниках» натисніть «Змінити з дати…», старі місяці лишаться правильними.', 'На початку нового навчального року натисніть «Новий навчальний рік…» — або імпортуйте новий табель.xlsx у «Дані і копії».')}
   ${how('Вихідні та свята', 'Субота й неділя — вихідні для будь-якого року (2030-й теж). Робочу суботу чи додатковий неробочий день робіть у «Календарі» одним клацанням.')}
   ${how('Відсутності та заміни', 'Додайте відсутність із кодом та періодом. Для ВП, ДД (декрет, догляд) ставте «безстроково». Якщо період припадає на навчальний рік і у працівника є уроки, відкриється майстер замін: на кожен день вибираєте, хто замінив і скільки годин. Рядки замін з’являються під табелем; години в них можна правити клацанням.')}
+  ${how('Порядок рядків', 'Табель можна скласти по блоках (вчителі одного предмета поруч, асистенти окремо). Кнопка «Порядок рядків» у табелі або клацання по номеру рядка відкриває список: перетягніть працівника, натисніть стрілку або впишіть номер і натисніть Enter. Порядок зберігається одразу й діє в табелі, у друку та в Excel.')}
   ${how('Друк і Excel', '«Друк» — таблиця за місяць на A4 (книжкова або альбомна). «Excel» — файл у форматі табеля школи з формулами; «Excel за рік» — 12 аркушів.')}
   ${how('Копії', 'Дані живуть у браузері цього комп’ютера. Виберіть папку для автокопій або регулярно завантажуйте копію файлом у розділі «Дані і копії». <span class="kbd">Ctrl+Z</span> скасовує останню зміну.')}
 </section>`;
@@ -2172,6 +2221,7 @@ const ACT = {
     for (const p of e.positions) for (const k of Object.keys(S.overrides)) if (k.startsWith(p.id + '|')) delete S.overrides[k];
     save(true); render();
   },
+  orderOpen: el => { POP = null; MODAL = { type: 'order', focus: el.dataset.id || '' }; render(); setTimeout(() => $('.ord[data-focus]')?.scrollIntoView({ block: 'center' }), 0); },
   empUp: el => moveEmp(el.dataset.id, -1),
   empDown: el => moveEmp(el.dataset.id, 1),
   addPos: el => { const e = byId(S.employees, el.dataset.id); e.positions.push({ id: uid(), title: '', to: null, loads: [{ from: iso(CUR.y, CUR.m, 1), rate: null, pattern: null }] }); save(true); keepScroll(render); },
@@ -2358,12 +2408,23 @@ const ACT = {
     S = blank(); IMPORT = null; WIZ = null; await flush(); go('help');
   }
 };
+/* перенести працівника на позицію pos (1-based) — порядок у табелі, друку та Excel */
+function moveEmpTo(id, pos) {
+  const list = emps(), i = list.findIndex(e => e.id === id); if (i < 0) return;
+  pos = Math.max(1, Math.min(list.length, Math.round(+pos || 0)));
+  if (pos === i + 1) { keepScroll(render); return; }
+  const [e] = list.splice(i, 1); list.splice(pos - 1, 0, e);
+  list.forEach((x, k) => x.order = k + 1);
+  save(true); if (MODAL?.type === 'order') MODAL.focus = id;
+  keepScroll(render); toast(`${e.name} — тепер № ${pos}`);
+}
 function moveEmp(id, dir) {
   const list = emps(), i = list.findIndex(e => e.id === id), j = i + dir;
   if (i < 0 || j < 0 || j >= list.length) return;
   list.forEach((e, k) => e.order = k + 1);
   [list[i].order, list[j].order] = [list[j].order, list[i].order];
-  save(true); keepScroll(render);
+  save(true); if (MODAL?.type === 'order') MODAL.focus = id;
+  keepScroll(render);
 }
 
 document.addEventListener('click', e => {
@@ -2381,11 +2442,13 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'Escape' && MODAL) ACT.modalClose();
   if (e.key === 'Enter' && e.target.id === 'popH') ACT.popSet();
   if (e.key === 'Enter' && e.target.matches('.drop')) ACT.pickXlsx();
+  if (e.key === 'Enter' && e.target.matches('.ord .ordn')) { e.preventDefault(); moveEmpTo(e.target.dataset.id, e.target.value); }
   if (e.key === 'Enter' && /^new(Name|Title|Rate)$/.test(e.target.id)) ACT.addEmp();
 });
 document.addEventListener('input', e => {
   const el = e.target;
   if (el.dataset.selq) { filterSelects(el.dataset.selq, el.value); return; }
+  if (el.dataset.ordq) { filterOrd(el.value); return; }
   if (el.dataset.q) {
     const k = el.dataset.q;
     Q[k] = el.value;
@@ -2419,6 +2482,7 @@ document.addEventListener('change', e => {
   const id = el.dataset.id, v = el.value, num = v === '' ? null : Math.max(0, +String(v).replace(',', '.'));
   let redraw = false;
   switch (f) {
+    case 'emp.pos': return moveEmpTo(id, v);
     case 'cur.m': setCur(CUR.y, +v); redraw = true; break;
     case 'cur.y': if (+v >= 2000 && +v <= 2100) { setCur(+v, CUR.m); redraw = true; } break;
     case 'print.emptyCols': S.print.emptyCols = el.checked; redraw = true; break;
@@ -2455,7 +2519,35 @@ $('#fileList').addEventListener('change', async e => {
   if (f) try { await openListFile(f); } catch (err) { toast('Не вдалося прочитати файл: ' + (err.message || err)); }
 });
 $('#fileJson').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) openJsonFile(f); });
-addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('dragging'); });
+/* перетягування рядків у вікні «Порядок рядків» */
+let ORD_DRAG = null;
+const ordClear = () => $$('.ord').forEach(r => r.classList.remove('over-b', 'over-a', 'drag'));
+document.addEventListener('dragstart', e => {
+  const r = e.target.closest?.('.ord'); if (!r) return;
+  ORD_DRAG = r.dataset.id; r.classList.add('drag');
+  try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ORD_DRAG); } catch (_) {}
+});
+document.addEventListener('dragend', () => { ORD_DRAG = null; ordClear(); document.body.classList.remove('dragging'); });
+document.addEventListener('dragover', e => {
+  if (!ORD_DRAG) return;
+  const r = e.target.closest?.('.ord'); if (!r) return;
+  e.preventDefault(); e.stopPropagation();
+  const b = r.getBoundingClientRect(), after = e.clientY > b.top + b.height / 2;
+  ordClear(); $$('.ord').forEach(x => x.classList.toggle('drag', x.dataset.id === ORD_DRAG));
+  r.classList.add(after ? 'over-a' : 'over-b');
+});
+document.addEventListener('drop', e => {
+  if (!ORD_DRAG) return;
+  const r = e.target.closest?.('.ord'); const id = ORD_DRAG; ORD_DRAG = null;
+  if (!r || r.dataset.id === id) { ordClear(); return; }
+  e.preventDefault(); e.stopPropagation();
+  const b = r.getBoundingClientRect(), after = e.clientY > b.top + b.height / 2;
+  const list = emps(), from = list.findIndex(x => x.id === id); let to = list.findIndex(x => x.id === r.dataset.id);
+  if (after) to++;
+  if (from < to) to--;
+  moveEmpTo(id, to + 1);
+});
+addEventListener('dragover', e => { if (ORD_DRAG) return; e.preventDefault(); document.body.classList.add('dragging'); });
 addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('dragging'); });
 addEventListener('drop', e => {
   e.preventDefault(); document.body.classList.remove('dragging');
@@ -2495,6 +2587,12 @@ addEventListener('pagehide', () => flush());
     else { S = blank(); FIRST = true; MODAL = { type: 'first' }; }   // у базу не пишемо, доки користувач не вибере
     const last = (await listSnaps())[0];
     if (!last || Date.now() - last.at > 30 * 60000) await snapshot('при відкритті');
+    /* програма оновилась — робимо окрему копію даних (дані живуть у базі браузера й від оновлення не зникають) */
+    const prevVer = await kvGet('ver');
+    if (prevVer !== VERSION) {
+      if (prevVer && hasData()) { await snapshot(`перед оновленням до версії ${VERSION}`); setTimeout(() => toast(`Програму оновлено до версії ${VERSION}. Дані на місці, копію «перед оновленням» збережено в «Дані і копії»`), 700); }
+      await kvPut('ver', VERSION);
+    }
     lastExport = await kvGet('lastExport') || 0;
     snoozeUntil = await kvGet('snooze') || 0;
     DIR = await kvGet('dir') || null;
