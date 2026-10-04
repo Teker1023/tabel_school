@@ -185,7 +185,7 @@ table.tbl{border-collapse:separate;border-spacing:0;width:100%;background:var(--
 .search input{border:0;background:none;padding:6px 0;min-height:34px}
 .search input:focus{outline:none;box-shadow:none}
 .search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-.search.sq{min-width:0;flex:0 1 230px;padding:0 8px 0 10px;margin-bottom:4px}
+.search.sq{min-width:0;flex:none;width:min(230px,100%);padding:0 8px 0 10px;margin-bottom:4px}
 .search.sq input{font-size:13.5px;min-height:30px}
 .search.sq svg.i{width:15px;height:15px;color:var(--muted);flex:none}
 .q{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--sunk);color:var(--muted);font:700 11px/1 var(--body);cursor:help;vertical-align:1px;margin-left:5px}
@@ -411,6 +411,9 @@ body[data-side="mini"] .side-toggle svg{transform:rotate(180deg)}
   .sheet td.t,.sheet td.s.last,.sheet tr.alt > td.t,.sheet tr.alt > td.s.last{background:#fff!important}
   .sheet tr.total td,.sheet tr.razom td,.sheet tr.band td{background:#fff!important;height:var(--rh,2.5mm);border:0.2mm solid #000}
   .sheet tr.band td{font-size:var(--fs,5.6pt);letter-spacing:.2em}
+  /* блок замін із підписами — з нової сторінки, щоб підписи не лишались самі */
+  body[data-subpage="1"] .sheet tr.band{break-before:page;page-break-before:always}
+  body[data-subpage="1"] .sheet-foot{margin-top:6mm}
   .sheet .empty-col{color:#000}
   .sheet-foot{max-width:none;width:100%;margin-top:9mm;font-size:var(--fs,5.6pt);gap:1mm 6mm;break-inside:avoid}
   .sheet-foot .sig{font-size:calc(var(--fs,5.6pt) * 1.25);margin-bottom:6mm}
@@ -458,7 +461,7 @@ const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10;
 
 /* окремі ключі — не перетинаються з іншими програмами школи */
 const LS = 'shkola-tabel-v1';
-const VERSION = '1.16 · 04.10.2026';
+const VERSION = '1.17 · 04.10.2026';
 
 const MONTHS = ['січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад', 'грудень'];
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
@@ -514,14 +517,15 @@ function holidaysOf(y) {
 /* ---------- стан ---------- */
 function blank() {
   return { v: 1, school: '', sign: { deputyTitle: 'Заст.директора по навч.частині', deputyName: '', directorTitle: 'Директор закладу', directorName: '' },
-    schoolYear: { from: '09-01', to: '05-31' }, print: { orientation: 'portrait', emptyCols: false }, holidays: false,
+    schoolYear: { from: '09-01', to: '05-31' }, print: { orientation: 'portrait', emptyCols: false, subPage: true }, holidays: false,
     employees: [], calendar: {}, absences: [], subs: [], overrides: {}, updated: 0 };
 }
 function valid(d) {
   if (!d || d.v !== 1 || !Array.isArray(d.employees) || !Array.isArray(d.absences) || !Array.isArray(d.subs)) return false;
   if (!d.sign) d.sign = blank().sign;
   if (!d.schoolYear) d.schoolYear = { from: '09-01', to: '05-31' };
-  if (!d.print) d.print = { orientation: 'portrait', emptyCols: false };
+  if (!d.print) d.print = { orientation: 'portrait', emptyCols: false, subPage: true };
+  if (d.print.subPage === undefined) d.print.subPage = true;
   if (!d.calendar) d.calendar = {};
   if (!d.overrides) d.overrides = {};
   return true;
@@ -1383,6 +1387,7 @@ function render() {
   $('#view').innerHTML = (V[TAB] || V.tabel)();
   if (TAB === 'data') { renderSnaps(); renderDiag(); }
   document.body.dataset.view = TAB;
+  document.body.dataset.subpage = S.print.subPage ? '1' : '0';
   renderModal(); applyPins(); applyZoom();
   document.body.dataset.orient = S.print.orientation;
   $('#pageRule').textContent = `@page{size:A4 ${S.print.orientation};margin:5mm 4mm}`;
@@ -1421,6 +1426,7 @@ V.tabel = () => {
   `<div class="toolbar noprint">
      ${searchBox('tabel', 'Пошук працівника в табелі')}
      <label class="chk"><input type="checkbox" data-f="print.emptyCols"${S.print.emptyCols ? ' checked' : ''}> Порожні колонки форми</label>
+     <label class="chk" title="Блок «Заміна», підписи й розшифровка позначок друкуються на окремому аркуші"><input type="checkbox" data-f="print.subPage"${S.print.subPage ? ' checked' : ''}> Заміни й підписи — на окремому аркуші</label>
      <span class="seg"><button data-act="orient" data-v="portrait" aria-pressed="${S.print.orientation === 'portrait'}">Книжкова</button><button data-act="orient" data-v="landscape" aria-pressed="${S.print.orientation === 'landscape'}">Альбомна</button></span>
      <span class="sp"></span>
      <span class="seg zoomseg" title="Масштаб табеля на екрані (також Ctrl + коліщатко миші над таблицею)"><button data-act="zoomOut">−</button><button data-act="zoom100" id="zoomLbl" title="Поточний масштаб; натисніть — 100 %">100%</button><button data-act="zoomIn">+</button><button data-act="zoomSet" data-z="w" aria-pressed="${ZOOM === 'w'}">По ширині</button><button data-act="zoomSet" data-z="all" aria-pressed="${ZOOM === 'all'}">Увесь табель</button></span>
@@ -1480,7 +1486,8 @@ function sheetHtml(M) {
   const foot = `<div class="sheet-foot"><div class="sig"><span class="st">${esc(S.sign.deputyTitle)}</span><span class="gap"></span><span class="sn">${esc(S.sign.deputyName)}</span></div><div class="sig"><span class="st">${esc(S.sign.directorTitle)}</span><span class="gap"></span><span class="sn">${esc(S.sign.directorName)}</span></div>
     <table>${LEGEND_L.map((_, i) => `<tr>${leg(LEGEND_L, i)}</tr>`).join('')}</table><table>${LEGEND_L.map((_, i) => `<tr>${leg(LEGEND_R, i)}</tr>`).join('')}</table></div>`;
   const W = { cn: 2.1, cname: 12.4, cpost: 8.6, crate: 3, cd: 1.72, ct: 2.2, cs: 2.05, ce: 1.2 }, wsum = W.cn + W.cname + W.cpost + W.crate + 31 * W.cd + W.ct + 9 * W.cs + (EC ? 6 * W.ce : 0);
-  const nrows = (found ? [...M.rows].filter(r => found.has(r.emp.id)).length : M.rows.length) + Math.max(1, M.subRows.length) + 3, land = S.print.orientation === 'landscape';
+  const mainRows = (found ? [...M.rows].filter(r => found.has(r.emp.id)).length : M.rows.length) + 1;
+  const nrows = S.print.subPage ? mainRows : mainRows + Math.max(1, M.subRows.length) + 2, land = S.print.orientation === 'landscape';
   const rh = land ? 3.2 : Math.max(2.15, Math.min(3.6, 198 / nrows)), fs = land ? 7 : Math.min(7.6, rh * 2.2);
   const vars = Object.entries(W).map(([k, v]) => `--w-${k}:${(v / wsum * 100).toFixed(3)}%`).join(';') + `;--rh:${rh.toFixed(2)}mm;--fs:${fs.toFixed(2)}pt;--fh:${(fs * 0.8).toFixed(2)}pt;--fn:${(fs * 0.98).toFixed(2)}pt;--fp:${(fs * 0.8).toFixed(2)}pt;--rot:${land ? 18 : 16}mm`;
   return `<div class="sheetwrap"><div class="sheet-page" data-cols="${ncols}" style="${vars}">
@@ -1950,6 +1957,7 @@ V.settings = () => pageHead('Налаштування', '') +
   <section class="card"><header><h2>Навчальний рік і друк</h2></header>
     <div class="row"><label class="field s">Початок (ММ-ДД)<input data-f="sy.from" value="${esc(S.schoolYear.from)}" placeholder="09-01"></label><label class="field s">Кінець (ММ-ДД)<input data-f="sy.to" value="${esc(S.schoolYear.to)}" placeholder="05-31"></label><span class="hint" style="padding-bottom:10px">У межах навчального року програма нагадує про заміни для відсутніх із уроками.</span></div>
     <div class="row"><div class="field">Орієнтація друку<div><span class="seg"><button data-act="orient" data-v="portrait" aria-pressed="${S.print.orientation === 'portrait'}">Книжкова</button><button data-act="orient" data-v="landscape" aria-pressed="${S.print.orientation === 'landscape'}">Альбомна</button></span></div></div>
+      <label class="chk" style="padding-bottom:8px"><input type="checkbox" data-f="print.subPage"${S.print.subPage ? ' checked' : ''}> Друкувати заміни, підписи й розшифровку позначок на окремому аркуші</label>
       <label class="chk" style="padding-bottom:8px"><input type="checkbox" data-f="print.emptyCols"${S.print.emptyCols ? ' checked' : ''}> Показувати порожні колонки форми (цілозм. простої, недопрацьовані год, нічні/вечірні)</label></div>
     <label class="chk"><input type="checkbox" data-f="set.holidays"${S.holidays ? ' checked' : ''}> Державні свята — неробочі дні (вимкнено на час воєнного стану)</label>
   </section>
@@ -2515,6 +2523,7 @@ document.addEventListener('change', e => {
     case 'cur.m': setCur(CUR.y, +v); redraw = true; break;
     case 'cur.y': if (+v >= 2000 && +v <= 2100) { setCur(+v, CUR.m); redraw = true; } break;
     case 'print.emptyCols': S.print.emptyCols = el.checked; redraw = true; break;
+    case 'print.subPage': S.print.subPage = el.checked; redraw = true; break;
     case 'set.holidays': S.holidays = el.checked; redraw = true; break;
     case 'set.school': S.school = v.trim(); break;
     case 'sign.deputyTitle': case 'sign.deputyName': case 'sign.directorTitle': case 'sign.directorName': S.sign[f.slice(5)] = v.trim(); break;
