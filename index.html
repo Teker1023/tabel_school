@@ -458,7 +458,7 @@ const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10;
 
 /* окремі ключі — не перетинаються з іншими програмами школи */
 const LS = 'shkola-tabel-v1';
-const VERSION = '1.15 · 29.09.2026';
+const VERSION = '1.16 · 04.10.2026';
 
 const MONTHS = ['січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад', 'грудень'];
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
@@ -685,6 +685,23 @@ function cellValue(emp, pos, s) {
   if (!isWorkingDay(s)) return 'ВХ';
   if (!l.pattern) return '';
   const h = l.pattern[workAs(s)]; return h == null ? '' : h;
+}
+/* яким було б значення клітинки, якби не ручна правка */
+function autoValue(emp, pos, s) {
+  const k = ovrKey(pos, s);
+  if (!(k in S.overrides)) return cellValue(emp, pos, s);
+  const saved = S.overrides[k]; delete S.overrides[k];
+  const v = cellValue(emp, pos, s); S.overrides[k] = saved; return v;
+}
+/* прибрати ручні правки працівника за період — інакше вони перекривають нову відсутність */
+function clearOverrides(empId, from, to) {
+  const e = byId(S.employees, empId); if (!e) return 0;
+  let n = 0;
+  for (const p of e.positions) for (const k of Object.keys(S.overrides)) {
+    const [pid, d] = k.split('|');
+    if (pid === p.id && d >= from && (!to || d <= to)) { delete S.overrides[k]; n++; }
+  }
+  return n;
 }
 function cellWhy(emp, pos, s) {
   const k = ovrKey(pos, s), base = [];
@@ -1501,6 +1518,7 @@ function cellModalHtml() {
       ${asSub.length ? `<div class="hint">Цього дня сам(а) заміняє: ${asSub.map(s => `${esc(s.forLabel)} — <b>${fmt(s.days[date])} год</b>`).join('; ')}</div>` : ''}
       <div class="row"><label class="field" style="flex:1">Годин у цей день (ручна правка однієї клітинки)<input type="number" step="0.5" min="0" id="popH" value="${typeof cur === 'number' ? cur : ''}"></label><button class="btn primary" data-act="popSet">Записати</button></div>
       <div class="field">Або мітка — відсутність (далі спитає період)<div class="codes cellpop" style="position:static;box-shadow:none;border:0;padding:0;min-width:0;flex-direction:row;flex-wrap:wrap">${CODES.map(([c]) => `<button class="btn small" data-act="popCode" data-v="${c}" title="${esc(CODE_DESC[c])}" style="color:#${CODE_COLOR[c] || '000'};font-family:'Times New Roman',serif;min-width:44px">${c}</button>`).join('')}<button class="btn small" data-act="popBlank" title="Порожня клітинка">∅</button></div></div>
+      ${isOvr ? `<div class="notice warn" style="margin:0">${ic('alert')}<span class="grow">Ця клітинка <b>виправлена вручну</b>: показано «${esc(String(cur))}». За розрахунком тут було б <b>«${esc(String(autoValue(emp, pos, date)))}»</b>.</span><button class="btn small primary" data-act="popReset">${ic('restore')} Повернути «${esc(String(autoValue(emp, pos, date)))}»</button></div>` : ''}
       <div class="row"><button class="btn small ghost" data-act="popReset"${isOvr ? '' : ' disabled'}>${ic('restore')} Прибрати ручну правку</button><span class="sp"></span><button class="btn small ghost" data-act="popClose">Закрити</button></div></div>`;
   }
   const sub = byId(S.subs, key); if (!sub) return '';
@@ -2282,7 +2300,10 @@ const ACT = {
       let cutN = 0; for (const s of subsOfAbs(a)) for (const d of Object.keys(s.days)) if (d < from || (to && d > to)) { delete s.days[d]; cutN++; }
       if (cutN) toast(`Період змінено: прибрано ${cutN} ${plural(cutN, 'день', 'дні', 'днів')} замін поза ним`);
     } else { a = { id: uid(), empId, code, from, to, note }; S.absences.push(a); }
+    /* ручні правки за цей період більше не мають сенсу — інакше вони перекрили б позначку */
+    const clearedN = clearOverrides(empId, from, to);
     ABS_EDIT = null; MODAL = null; POP = null; save(true);
+    if (clearedN) toast(`Відсутність збережено. Прибрано ручних правок: ${clearedN}`);
     if (subDates(a).length && !LONG_CODES.has(code) && ((modal && isNew) || (needsSubs(a) && confirm('Відсутність записано. Період припадає на навчальний рік, у працівника є уроки.\n\nВписати заміни зараз?')))) return startWizard(a);
     keepScroll(render); toast('Відсутність збережено');
   },
