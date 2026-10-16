@@ -432,8 +432,8 @@ body[data-side="mini"] .side-toggle svg{transform:rotate(180deg)}
   /* блок замін із підписами — з нової сторінки, щоб підписи не лишались самі */
   body[data-subpage="1"] .sheet tr.band{break-before:page;page-break-before:always}
   body[data-subpage="1"] .sheet-foot{margin-top:8mm;gap:1.5mm 8mm}
-  body[data-subpage="1"] .sheet-foot .sig{font-size:calc(var(--fs,5.6pt) * 2.1);font-weight:700;margin-bottom:8mm}
-  body[data-subpage="1"] .sheet-foot td{font-size:calc(var(--fs,5.6pt) * 1.5);font-weight:700;padding:.6mm 1mm}
+  body[data-subpage="1"] .sheet-foot .sig{font-size:calc(var(--fs,5.6pt) * 1.6);font-weight:700;margin-bottom:7mm}
+  body[data-subpage="1"] .sheet-foot td{font-size:calc(var(--fs,5.6pt) * 1.15);font-weight:700;padding:.5mm 1mm}
   .sheet .empty-col{color:#000}
   .sheet-foot{max-width:none;width:100%;margin-top:9mm;font-size:var(--fs,5.6pt);gap:1mm 6mm;break-inside:avoid}
   .sheet-foot .sig{font-size:calc(var(--fs,5.6pt) * 1.6);font-weight:700;margin-bottom:6mm}
@@ -482,7 +482,7 @@ const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10;
 
 /* окремі ключі — не перетинаються з іншими програмами школи */
 const LS = 'shkola-tabel-v1';
-const VERSION = '1.26 · 16.10.2026';
+const VERSION = '1.27 · 16.10.2026';
 
 const MONTHS = ['січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад', 'грудень'];
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
@@ -1491,7 +1491,7 @@ const tabelFound = M => Q.tabel.trim() ? new Set(M.rows.filter(r => hit('tabel',
 /* бокові поля сторінки друку, мм (зона недруку в принтерів ≈4 мм) */
 const PAGE_MX = 5;
 /* частки ширини колонок форми */
-const SHEET_W = { cn: 2.1, cname: 12.4, cpost: 8.6, crate: 3, cd: 1.72, ct: 2.2, cs: 2.05, ce: 1.2 };
+const SHEET_W = { cn: 1.9, cname: 13.1, cpost: 8.6, crate: 2.5, cd: 1.72, ct: 2.2, cs: 2.05, ce: 1.2 };
 /* ширина тексту в мм для шрифту Times New Roman 10 pt (через canvas) */
 const textMm = (() => { let ctx; return (txt, bold) => { if (!ctx) ctx = document.createElement('canvas').getContext('2d'); ctx.font = `${bold ? '700 ' : ''}10pt "Times New Roman", serif`; return ctx.measureText(txt).width * 25.4 / 96; }; })();
 /* найбільший кегль (pt), за якого всі тексти вміщаються в колонку шириною colMm */
