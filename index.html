@@ -478,7 +478,7 @@ const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10;
 
 /* окремі ключі — не перетинаються з іншими програмами школи */
 const LS = 'shkola-tabel-v1';
-const VERSION = '1.20 · 16.10.2026';
+const VERSION = '1.21 · 16.10.2026';
 
 const MONTHS = ['січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад', 'грудень'];
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
@@ -1492,18 +1492,21 @@ function sheetVars(M) {
   const sumA = W.cn + W.cname + W.cpost + W.crate + 15 * W.cd + W.ct, sumB = 16 * W.cd + 9 * W.cs + (EC ? 6 * W.ce : 0), wsum = sumA + sumB;
   const mainRows = (found ? M.rows.filter(r => found.has(r.emp.id)).length : M.rows.length) + 1;
   const nrows = S.print.subPage ? mainRows : mainRows + Math.max(1, M.subRows.length) + 2, land = S.print.orientation !== 'portrait';
-  const fonts = fs => `--fs:${fs.toFixed(2)}pt;--fh:${(fs * 0.8).toFixed(2)}pt;--fn:${(fs * 0.98).toFixed(2)}pt;--fp:${(fs * 0.8).toFixed(2)}pt`;
-  const rh = land ? 3.2 : Math.max(2.15, Math.min(3.6, 198 / nrows)), fs = land ? 7 : Math.min(7.6, rh * 2.2);
-  const full = Object.entries(W).map(([k, v]) => `--w-${k}:${(v / wsum * 100).toFixed(3)}%`).join(';') + `;--rh:${rh.toFixed(2)}mm;${fonts(fs)};--rot:${land ? 18 : 16}mm`;
+  const fonts = (fs, fn = fs * 0.98, fp = fs * 0.8) => `--fs:${fs.toFixed(2)}pt;--fh:${(fs * 0.8).toFixed(2)}pt;--fn:${fn.toFixed(2)}pt;--fp:${fp.toFixed(2)}pt`;
+  /* місце під рядки на сторінці: перша (заголовок + шапка) ≈160 мм, наступні (лише шапка) ≈172 мм;
+     сторінок — найменше, за якого рядки по 2,6 мм ще вміщаються, далі рядок росте до 4,6 мм (запас 3 %) */
+  const cap = p => 160 + 172 * (p - 1);
+  const fitRows = footH => { let pages = 1; while (nrows * 2.6 + footH > cap(pages) && pages < 20) pages++; return Math.max(2.15, Math.min(4.6, (cap(pages) - footH) / nrows * 0.97)); };
+  /* альбомна: рядки й шрифт максимальні, за яких сторінок не стає більше; шрифт обмежують вузькі колонки днів (≈4,9 мм) */
+  const rhL = fitRows(S.print.subPage ? 0 : 45), fsL = Math.min(8.5, rhL * 2.2);
+  const rh = land ? rhL : Math.max(2.15, Math.min(3.6, 198 / nrows)), fs = land ? fsL : Math.min(7.6, rh * 2.2);
+  const fontsFull = land ? fonts(fsL, Math.min(7.4, fsL * 0.98), Math.min(6, fsL * 0.8)) : fonts(fs);
+  const full = Object.entries(W).map(([k, v]) => `--w-${k}:${(v / wsum * 100).toFixed(3)}%`).join(';') + `;--rh:${rh.toFixed(2)}mm;${fontsFull};--rot:${land ? 18 : 16}mm`;
   /* два аркуші: одна ціна поділки (мм на частку) для обох половин, щоб колонки днів були однакові.
      Аркуш A — 289 мм (A4 альбомна без полів), аркуш B — ще мінус 15 мм на склеювання.
      Висота рядка: найбільша, за якої всі рядки вміщаються в ціле число сторінок (на сторінці ≈163 мм під рядки) */
-  const unit = Math.min(289 / sumA, 274 / sumB), footH = S.print.subPage ? 0 : 36;   // підписи й розшифровка на тому ж аркуші — ≈36 мм
-  /* місце під рядки: перша сторінка (заголовок + шапка) ≈160 мм, наступні (лише шапка) ≈172 мм;
-     сторінок — найменше, за якого рядки по 2,6 мм ще вміщаються, далі рядок росте до 4,6 мм (з запасом 3 %) */
-  const cap = p => 160 + 172 * (p - 1);
-  let pages = 1; while (nrows * 2.6 + footH > cap(pages) && pages < 20) pages++;
-  const rh2 = Math.max(2.15, Math.min(4.6, (cap(pages) - footH) / nrows * 0.97)), fs2 = Math.min(10, rh2 * 2.2);
+  const unit = Math.min(289 / sumA, 274 / sumB);
+  const rh2 = fitRows(S.print.subPage ? 0 : 36), fs2 = Math.min(10, rh2 * 2.2);   // підписи й розшифровка на тому ж аркуші — компактні, ≈36 мм
   const half = Object.entries(W).map(([k, v]) => `--w-${k}:${(v * unit).toFixed(2)}mm`).join(';') + `;--tw-a:${(sumA * unit).toFixed(1)}mm;--tw-b:${(sumB * unit).toFixed(1)}mm;--rh:${rh2.toFixed(2)}mm;${fonts(fs2)};--rot:18mm`;
   return { full, half };
 }
