@@ -1,6 +1,6 @@
 // Кешує програму, щоб вона відкривалась без інтернету.
 // Після зміни файлів програми збільште номер версії.
-const CACHE = 'tabel-v8';
+const CACHE = 'tabel-v9';
 const FILES = ['./', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
