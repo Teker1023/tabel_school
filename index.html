@@ -404,6 +404,11 @@ body[data-side="mini"] .side-toggle svg{transform:rotate(180deg)}
   body[data-orient="split"] .half-b table.sheet{width:var(--tw-b)}
   body[data-orient="split"] .half thead tr:first-child{height:7mm}
   body[data-orient="split"] .half thead tr:nth-child(n+2){height:var(--rot)}
+  /* підписи на тому ж аркуші, що й таблиця — компактніше, щоб не йшли на окрему сторінку */
+  body[data-orient="split"][data-subpage="0"] .sheet-foot{margin-top:4mm;gap:.5mm 6mm}
+  body[data-orient="split"][data-subpage="0"] .sheet-foot .sig{margin-bottom:3mm}
+  body[data-orient="split"][data-subpage="0"] .sheet-foot .sig:last-of-type{margin-bottom:4mm}
+  body[data-orient="split"][data-subpage="0"] .sheet-foot td{padding:0 1mm;line-height:1.1;font-size:calc(var(--fs,5.6pt) * .85)}
   body[data-view="tabel"] .content{padding:0}
   body[data-view="tabel"] .sheet-page{padding:0}
   .side-toggle{display:none}
@@ -473,7 +478,7 @@ const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10;
 
 /* окремі ключі — не перетинаються з іншими програмами школи */
 const LS = 'shkola-tabel-v1';
-const VERSION = '1.18 · 16.10.2026';
+const VERSION = '1.19 · 16.10.2026';
 
 const MONTHS = ['січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад', 'грудень'];
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
@@ -1440,7 +1445,7 @@ V.tabel = () => {
      <label class="chk"><input type="checkbox" data-f="print.emptyCols"${S.print.emptyCols ? ' checked' : ''}> Порожні колонки форми</label>
      <label class="chk" title="Блок «Заміна», підписи й розшифровка позначок друкуються на окремому аркуші"><input type="checkbox" data-f="print.subPage"${S.print.subPage ? ' checked' : ''}> Заміни й підписи — на окремому аркуші</label>
      <span class="seg"><button data-act="orient" data-v="portrait" aria-pressed="${S.print.orientation === 'portrait'}">Книжкова</button><button data-act="orient" data-v="landscape" aria-pressed="${S.print.orientation === 'landscape'}">Альбомна</button><button data-act="orient" data-v="split" aria-pressed="${S.print.orientation === 'split'}" title="Таблиця друкується на два альбомні аркуші: A — прізвища й дні 1–15, B — дні 16–31 і підсумки. На аркуші B зліва 15 мм для склеювання">Альбомна, 2 аркуші</button></span>
-     ${S.print.orientation === 'split' ? '<span class="hint">Друк на 2 аркуші: A — прізвища та дні 1–15, B — дні 16–31 і підсумки; на B зліва 15 мм для склеювання</span>' : ''}
+     ${S.print.orientation === 'split' ? `<span class="hint">Друк на 2 аркуші: A — прізвища та дні 1–15, B — дні 16–31 і підсумки; на B зліва 15 мм для склеювання. ${S.print.subPage ? 'Щоб аркушів було менше — зніміть «Заміни й підписи — на окремому аркуші»' : 'Заміни й підписи — під таблицею, рядки трохи щільніші'}</span>` : ''}
      <span class="sp"></span>
      <span class="seg zoomseg" title="Масштаб табеля на екрані (також Ctrl + коліщатко миші над таблицею)"><button data-act="zoomOut">−</button><button data-act="zoom100" id="zoomLbl" title="Поточний масштаб; натисніть — 100 %">100%</button><button data-act="zoomIn">+</button><button data-act="zoomSet" data-z="w" aria-pressed="${ZOOM === 'w'}">По ширині</button><button data-act="zoomSet" data-z="all" aria-pressed="${ZOOM === 'all'}">Увесь табель</button></span>
      ${PIN.cols.size + PIN.rows.size ? `<button class="btn small" data-act="pinClear">${ic('x')} Зняти підсвічення</button>` : ''}
@@ -1475,8 +1480,12 @@ function sheetVars(M) {
   /* два аркуші: одна ціна поділки (мм на частку) для обох половин, щоб колонки днів були однакові.
      Аркуш A — 289 мм (A4 альбомна без полів), аркуш B — ще мінус 15 мм на склеювання.
      Висота рядка: найбільша, за якої всі рядки вміщаються в ціле число сторінок (на сторінці ≈163 мм під рядки) */
-  const unit = Math.min(289 / sumA, 274 / sumB), avail = 163, pages = Math.max(1, Math.ceil(nrows * 3.4 / avail));
-  const rh2 = Math.min(4.6, avail * pages / nrows * 0.985), fs2 = Math.min(10, rh2 * 2.2);
+  const unit = Math.min(289 / sumA, 274 / sumB), footH = S.print.subPage ? 0 : 36;   // підписи й розшифровка на тому ж аркуші — ≈36 мм
+  /* місце під рядки: перша сторінка (заголовок + шапка) ≈160 мм, наступні (лише шапка) ≈172 мм;
+     сторінок — найменше, за якого рядки по 2,6 мм ще вміщаються, далі рядок росте до 4,6 мм (з запасом 3 %) */
+  const cap = p => 160 + 172 * (p - 1);
+  let pages = 1; while (nrows * 2.6 + footH > cap(pages) && pages < 20) pages++;
+  const rh2 = Math.max(2.15, Math.min(4.6, (cap(pages) - footH) / nrows * 0.97)), fs2 = Math.min(10, rh2 * 2.2);
   const half = Object.entries(W).map(([k, v]) => `--w-${k}:${(v * unit).toFixed(2)}mm`).join(';') + `;--tw-a:${(sumA * unit).toFixed(1)}mm;--tw-b:${(sumB * unit).toFixed(1)}mm;--rh:${rh2.toFixed(2)}mm;${fonts(fs2)};--rot:18mm`;
   return { full, half };
 }
