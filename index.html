@@ -478,7 +478,7 @@ const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10;
 
 /* окремі ключі — не перетинаються з іншими програмами школи */
 const LS = 'shkola-tabel-v1';
-const VERSION = '1.19 · 16.10.2026';
+const VERSION = '1.20 · 16.10.2026';
 
 const MONTHS = ['січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад', 'грудень'];
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
@@ -1130,6 +1130,8 @@ function download(blob, name) {
 
 /* стилі таблиці: шрифти й рамки як в оригінальному файлі школи (Times New Roman 36/28, тонкі рамки) */
 const XF = { def: 0, title: 1, school: 2, subtitle: 3, hdr: 4, hdrRot: 5, num: 6, name: 7, code: 8, ВХ: 9, ВП: 10, ДД: 10, НА: 11, ТН: 12, label: 13, sig: 14, legend: 15, legendCode: 16, post: 17, small: 18, band: 19 };
+/* стиль → той самий із сірою заливкою (колонки вихідних, як на екрані та в друку) */
+const XF_WE = { [XF.hdr]: 20, [XF.num]: 21, [XF.code]: 22, [XF.ВХ]: 23, [XF.ВП]: 24, [XF.НА]: 25, [XF.ТН]: 26 };
 function stylesXml() {
   const M = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
   const F = (sz, b, color) => `<font>${b ? '<b/>' : ''}<sz val="${sz}"/>${color ? `<color rgb="FF${color}"/>` : ''}<name val="Times New Roman"/><family val="1"/></font>`;
@@ -1137,8 +1139,8 @@ function stylesXml() {
   const borders = ['<border><left/><right/><top/><bottom/><diagonal/></border>',
     '<border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/><diagonal/></border>',
     '<border><left/><right/><top/><bottom style="thin"/><diagonal/></border>'];
-  const X = (font, border, al = 'center', wrap = false, rot = 0, vert = 'center') =>
-    `<xf numFmtId="0" fontId="${font}" fillId="0" borderId="${border}" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="${al}" vertical="${vert}"${wrap ? ' wrapText="1"' : ''}${rot ? ` textRotation="${rot}"` : ''}/></xf>`;
+  const X = (font, border, al = 'center', wrap = false, rot = 0, vert = 'center', fill = 0) =>
+    `<xf numFmtId="0" fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"${fill ? ' applyFill="1"' : ''}><alignment horizontal="${al}" vertical="${vert}"${wrap ? ' wrapText="1"' : ''}${rot ? ` textRotation="${rot}"` : ''}/></xf>`;
   const xfs = [
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>',   // 0 def
     X(1, 0),                    // 1 title
@@ -1156,9 +1158,12 @@ function stylesXml() {
     X(4, 0, 'left'),            // 16 legendCode
     X(4, 1, 'center', true),    // 17 post
     X(4, 1),                    // 18 small (№, ставка)
-    X(1, 1, 'center')           // 19 band «Заміна»
+    X(1, 1, 'center'),          // 19 band «Заміна»
+    /* 20..26 — ті самі стилі з сірою заливкою вихідних (XF_WE) */
+    X(4, 1, 'center', true, 0, 'center', 2), X(1, 1, 'center', false, 0, 'center', 2), X(1, 1, 'center', false, 0, 'center', 2),
+    X(5, 1, 'center', false, 0, 'center', 2), X(6, 1, 'center', false, 0, 'center', 2), X(7, 1, 'center', false, 0, 'center', 2), X(8, 1, 'center', false, 0, 'center', 2)
   ];
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="${M}"><fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="${borders.length}">${borders.join('')}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="${M}"><fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE4E4E4"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="${borders.length}">${borders.join('')}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
 }
 /* ширини колонок форми (A…AY) як в оригіналі */
 const SHEET_WIDTHS = (() => {
@@ -1169,10 +1174,13 @@ const SHEET_WIDTHS = (() => {
 })();
 const DAYCOL = i => i < 15 ? 4 + i : 20 + (i - 15);   // індекс колонки для дня (0-based)
 const COL = { T: 19, AK: 36, AM: 38, AV: 47 };
+/* порожні колонки форми (цілозм. простої, недопрацьовані год, нічні/вечірні) — приховані, якщо вимкнено «Порожні колонки форми» */
+const EMPTY_COLS = new Set([37, 45, 46, 48, 49, 50]);
 /* аркуш табеля за місяць: масив рядків {h, cells:[{c, v|f, s}]}, злиття, область друку */
 function tabelSheet(M) {
-  const n = M.dates.length, rows = [], merges = [];
+  const n = M.dates.length, rows = [], merges = [], WE = M.dates.map(d => !isWorkingDay(d));
   const cell = (c, v, s, f) => ({ c, v, s, f });
+  const we = (i, s) => WE[i] ? XF_WE[s] ?? s : s;   // стиль клітинки дня з урахуванням вихідного
   const push = (h, cells) => { rows.push({ h, cells }); return rows.length; };   // повертає номер рядка (1-based)
   const A = colName, R = (c, r) => A(c) + r;
   push(46.2, [cell(0, `Підприємство:  ${S.school}`, XF.school), cell(7, 'Т А Б Е Л Ь', XF.title)]);
@@ -1180,9 +1188,9 @@ function tabelSheet(M) {
   push(27.75, []);
   merges.push('A1:G3', 'H1:AX1', 'H2:AX3');
   const hdr = (c, t, rot) => cell(c, t, rot ? XF.hdrRot : XF.hdr);
-  push(107.25, [hdr(0, '№№ п/п', 1), hdr(1, 'Прізвище, ім’я та по батькові'), hdr(2, 'Професія, посада'), hdr(3, 'Розряд, ставка'), hdr(5, ''), hdr(36, 'Дні явок'), hdr(38, 'Неявки (л-днів)'), hdr(43, 'Прогули'), hdr(44, 'Вихідні та святкові'), hdr(45, 'Недопрацьовані год'), hdr(47, 'Відпрацьовано годин')]);
+  push(107.25, [hdr(0, '№№ п/п', 1), hdr(1, 'Прізвище, ім’я та по батькові'), hdr(2, 'Професія, посада'), hdr(3, 'Розряд, ставка'), hdr(5, 'Дні місяця'), hdr(36, 'Дні явок'), hdr(38, 'Неявки (л-днів)'), hdr(43, 'Прогули'), hdr(44, 'Вихідні та святкові'), hdr(45, 'Недопрацьовані год'), hdr(47, 'Відпрацьовано годин')]);
   const r5 = [];
-  for (let i = 0; i < 31; i++) r5.push(hdr(DAYCOL(i), i < n ? i + 1 : ''));
+  for (let i = 0; i < 31; i++) r5.push(cell(DAYCOL(i), i < n ? i + 1 : '', i < n ? we(i, XF.hdr) : XF.hdr));
   r5.push(hdr(19, 'разом за І пол'), hdr(36, 'фактич роботи', 1), hdr(37, 'цілозм простої', 1));
   COUNT_COLS.forEach(([c, t], i) => { if (i < 5) r5.push(hdr(38 + i, t, 1)); });
   r5.push(hdr(45, 'плинність простоїв', 1), hdr(46, 'всього годин', 1), hdr(47, 'Всього', 1), hdr(48, 'З них'));
@@ -1197,7 +1205,7 @@ function tabelSheet(M) {
     for (let i = 0; i < 31; i++) {
       const c = DAYCOL(i); if (i >= n) { out.push(cell(c, '', XF.num)); continue; }
       const v = cells[i];
-      out.push(typeof v === 'number' ? cell(c, v, XF.num) : cell(c, v || '', XF[v] || XF.code));
+      out.push(typeof v === 'number' ? cell(c, v, we(i, XF.num)) : cell(c, v || '', we(i, XF[v] || XF.code)));
     }
     const fE = `E${r}:S${r}`, fU = `U${r}:AJ${r}`, fAll = `E${r}:AJ${r}`;
     out.push(cell(19, tot.h1, XF.num));
@@ -1230,7 +1238,7 @@ function tabelSheet(M) {
   const setVals = (cells, tot) => { const m = { 19: tot.h1, 36: tot.days, 47: tot.sum }; COUNT_COLS.forEach(([code], i) => m[38 + i] = tot.c[code] || 0); for (const c of cells) if (c.c in m) c.v = m[c.c]; };
   const totCells = sumRow('Всього:', firstData, lastData, XF.label); setVals(totCells, M.total);
   push(39.9, totCells);
-  const bandR = push(39.9, [cell(1, 'Заміна', XF.band)]); merges.push(`B${bandR}:AY${bandR}`);
+  const bandR = push(39.9, [cell(0, 'Заміна', XF.band)]); merges.push(`A${bandR}:AY${bandR}`);
   const firstSub = rows.length + 1;
   const subRowsAll = [...M.subRows];
   /* два порожні рядки для дописування від руки */
@@ -1252,7 +1260,17 @@ function tabelSheet(M) {
     if (LEGEND_R[i]) c.push(cell(24, CODE_DESC[LEGEND_R[i]], XF.legend), cell(40, LEGEND_R[i], XF.legendCode));
     push(46.2, c);
   }
-  return { name: MONTHS[M.m - 1], rows, merges, widths: SHEET_WIDTHS, printArea: `$A$1:$AY$${rows.length}`, sigR };
+  /* кожна клітинка об’єднаного діапазону дістає стиль (рамку, заливку) верхньої лівої — інакше Excel малює сітку з прогалинами */
+  const byRef = new Map(); rows.forEach((row, i) => row.cells.forEach(c => byRef.set(c.c + ':' + (i + 1), c)));
+  for (const m of merges) {
+    const [a, b] = m.split(':').map(ref => { const mm = ref.match(/^([A-Z]+)(\d+)$/); return [colIdx(mm[1]), +mm[2]]; });
+    const tl = byRef.get(a[0] + ':' + a[1]); if (!tl) continue;
+    for (let r = a[1]; r <= b[1]; r++) for (let c = a[0]; c <= b[0]; c++) {
+      const k = c + ':' + r; if (byRef.has(k)) continue;
+      const cc = cell(c, '', tl.s); rows[r - 1].cells.push(cc); byRef.set(k, cc);
+    }
+  }
+  return { name: MONTHS[M.m - 1], rows, merges, widths: SHEET_WIDTHS, printArea: `$A$1:$AY$${rows.length}`, sigR, hideEmpty: !S.print.emptyCols };
 }
 function sheetXml(sh) {
   const cellXml = (c, r) => {
@@ -1263,7 +1281,7 @@ function sheetXml(sh) {
   };
   const data = sh.rows.map((row, i) => `<row r="${i + 1}" ht="${row.h}" customHeight="1">${[...row.cells].sort((a, b) => a.c - b.c).map(c => cellXml(c, i + 1)).join('')}</row>`).join('');
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="0"/></sheetPr><dimension ref="A1:AY${sh.rows.length}"/><sheetViews><sheetView workbookViewId="0" zoomScale="${sh.zoom ?? 30}" zoomScaleNormal="${sh.zoom ?? 30}"/></sheetViews><sheetFormatPr defaultRowHeight="13.2"/><cols>` +
-    sh.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('') +
+    sh.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"${sh.hideEmpty && EMPTY_COLS.has(i) ? ' hidden="1"' : ''}/>`).join('') +
     `</cols><sheetData>${data}</sheetData><mergeCells count="${sh.merges.length}">${sh.merges.map(m => `<mergeCell ref="${m}"/>`).join('')}</mergeCells><printOptions horizontalCentered="1"/><pageMargins left="0.19685" right="0.19685" top="0.15748" bottom="0.15748" header="0" footer="0"/><pageSetup paperSize="9" scale="${sh.scale ?? 27}" orientation="portrait"/></worksheet>`;
 }
 function buildXlsx(sheets) {
