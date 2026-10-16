@@ -482,7 +482,7 @@ const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10;
 
 /* окремі ключі — не перетинаються з іншими програмами школи */
 const LS = 'shkola-tabel-v1';
-const VERSION = '1.25 · 16.10.2026';
+const VERSION = '1.26 · 16.10.2026';
 
 const MONTHS = ['січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад', 'грудень'];
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
@@ -538,7 +538,7 @@ function holidaysOf(y) {
 /* ---------- стан ---------- */
 function blank() {
   return { v: 1, school: '', sign: { deputyTitle: 'Заст.директора по навч.частині', deputyName: '', directorTitle: 'Директор закладу', directorName: '' },
-    schoolYear: { from: '09-01', to: '05-31' }, print: { orientation: 'portrait', emptyCols: false, subPage: true }, holidays: false,
+    schoolYear: { from: '09-01', to: '05-31' }, print: { orientation: 'portrait', emptyCols: false, subPage: true, scale: 1 }, holidays: false,
     employees: [], calendar: {}, absences: [], subs: [], overrides: {}, updated: 0 };
 }
 function valid(d) {
@@ -547,6 +547,7 @@ function valid(d) {
   if (!d.schoolYear) d.schoolYear = { from: '09-01', to: '05-31' };
   if (!d.print) d.print = { orientation: 'portrait', emptyCols: false, subPage: true };
   if (d.print.subPage === undefined) d.print.subPage = true;
+  if (!(d.print.scale > 0)) d.print.scale = 1;
   if (!d.calendar) d.calendar = {};
   if (!d.overrides) d.overrides = {};
   return true;
@@ -1457,7 +1458,7 @@ function showBanner() {
 /* ---------- Табель ---------- */
 const monthSelect = () => `<select data-f="cur.m" style="width:auto">${MONTHS.map((n, i) => `<option value="${i + 1}"${i + 1 === CUR.m ? ' selected' : ''}>${n}</option>`).join('')}</select><input type="number" data-f="cur.y" value="${CUR.y}" min="2000" max="2100" style="width:90px">`;
 V.tabel = () => {
-  const M = monthRows(CUR.y, CUR.m);
+  const M = monthRows(CUR.y, CUR.m), PV = sheetVars(M);
   const extra = Object.entries(M.total.c).filter(([c]) => !COUNTED.has(c));
   return pageHead('Табель', `Таблиця складається сама: графік кожної посади × календар × відсутності. Клацніть клітинку, щоб виправити її вручну.`,
     `<button class="btn ghost" data-act="prevMonth" title="Попередній місяць">${ic('left')}</button>${monthSelect()}<button class="btn ghost" data-act="nextMonth" title="Наступний місяць">${ic('right')}</button>
@@ -1465,6 +1466,8 @@ V.tabel = () => {
   `<div class="toolbar noprint">
      ${searchBox('tabel', 'Пошук працівника в табелі')}
      <span class="seg"><button data-act="orient" data-v="portrait" aria-pressed="${S.print.orientation === 'portrait'}">Книжкова</button><button data-act="orient" data-v="landscape" aria-pressed="${S.print.orientation !== 'portrait'}">Альбомна</button></span>
+     <span class="seg" title="Розмір рядків і шрифту при друку. 100 % — автопідбір під кількість аркушів; «+» збільшує, поки аркуші не заповняться"><button data-act="pscale" data-d="-1">−</button><button data-act="pscale" data-d="0" title="Натисніть — повернути автопідбір">Друк ${Math.round((S.print.scale || 1) * 100)}%</button><button data-act="pscale" data-d="1">+</button></span>
+     <span class="hint">рядок ${PV.info.rh.toFixed(1).replace('.', ',')} мм · шрифт ${PV.info.fs.toFixed(1).replace('.', ',')} pt</span>
      <span class="sp"></span>
      <span class="seg zoomseg" title="Масштаб табеля на екрані (також Ctrl + коліщатко миші над таблицею)"><button data-act="zoomOut">−</button><button data-act="zoom100" id="zoomLbl" title="Поточний масштаб; натисніть — 100 %">100%</button><button data-act="zoomIn">+</button><button data-act="zoomSet" data-z="w" aria-pressed="${ZOOM === 'w'}">По ширині</button><button data-act="zoomSet" data-z="all" aria-pressed="${ZOOM === 'all'}">Увесь табель</button></span>
      ${PIN.cols.size + PIN.rows.size ? `<button class="btn small" data-act="pinClear">${ic('x')} Зняти підсвічення</button>` : ''}
@@ -1503,14 +1506,15 @@ function sheetVars(M) {
   /* тексти колонок «Прізвище» і «Посада» (разом із рядками замін) */
   const prRows = found ? M.rows.filter(r => found.has(r.emp.id)) : M.rows, subRows = M.subRows;
   const names = [...prRows.map(r => r.emp.name), ...subRows.map(r => r.name)];
-  const posts = [...prRows.map(r => r.pos.title), ...subRows.map(r => r.label ? `( ${r.label} )` : '')].filter(Boolean);   // підписи замін — у тій самій колонці
+  /* підписи «( замість … )» у тій самій колонці; якщо заміни на окремому аркуші — вони на кегль не впливають (там місця досить) */
+  const posts = [...prRows.map(r => r.pos.title), ...(S.print.subPage ? [] : subRows.map(r => r.label ? `( ${r.label} )` : ''))].filter(Boolean);
   const postW = posts.map(t => textMm(t, true)).sort((a, b) => a - b);
   /* кегль прізвищ — під найдовше; кегль посад — один на колонку: під 80-й перцентиль довжини,
      довші назви переносяться на другий рядок (у режимі «2 аркуші» колонка широка — без переносів) */
-  const nameFont = (rhMm, colMm) => fitPt(names, true, colMm, Math.min(10, rhMm * 2.3));
+  const nameFont = (rhMm, colMm) => fitPt(names, true, colMm, Math.min(11, rhMm * 2.5));
   const postFont = (rhMm, colMm, strict) => {
-    const cap = Math.min(10, rhMm * 2.4); if (!postW.length) return cap;
-    const w = strict ? postW[postW.length - 1] : postW[Math.floor(0.8 * (postW.length - 1))];
+    const cap = Math.min(10, rhMm * 2.5); if (!postW.length) return cap;
+    const w = strict ? postW[postW.length - 1] : postW[Math.floor(0.9 * (postW.length - 1))];   // переносяться лише ~10 % найдовших
     return Math.max(4.2, Math.min(cap, 10 * (colMm - 1.4) / w));
   };
   const wraps = (pt, colMm) => postW.filter(w => w * pt / 10 > colMm - 1.4).length;   // скільки посад підуть у 2 рядки
@@ -1522,17 +1526,19 @@ function sheetVars(M) {
   /* звичайний друк: спочатку рядок без переносів, далі — з поправкою на посади у 2 рядки (кожна ≈ +1 рядок) */
   const footFull = S.print.subPage ? 0 : 60;
   const rowH = n => land ? fitRows(n, footFull) : Math.max(2.15, Math.min(3.6, (198 - footFull * 0.5) / n));
+  const K = S.print.scale || 1;   // ручний масштаб друку поверх автопідбору
   let rh = rowH(nrows0), fp = postFont(rh, postMm, false);
   const extra = wraps(fp, postMm);
   if (extra) { rh = rowH(nrows0 + extra); fp = Math.min(fp, postFont(rh, postMm, false)); }
-  const fs = land ? Math.min(8.5, rh * 2.2) : Math.min(7.6, rh * 2.2);
+  rh = Math.min(6.5, rh * K); fp = Math.min(fp * K, postFont(rh, postMm, false));
+  const fs = land ? Math.min(8.6, rh * 2.4) : Math.min(8, rh * 2.4);   // колонка дня ≈4,9 мм: «ВХ» ширше 8,6 pt уже злипається
   const full = Object.entries(W).map(([k, v]) => `--w-${k}:${(v / wsum * 100).toFixed(3)}%`).join(';') + `;--rh:${rh.toFixed(2)}mm;${fonts(fs, nameFont(rh, mmFull('cname')), fp)};--rot:${land ? 18 : 16}mm`;
   /* два аркуші: одна ціна поділки (мм на частку) для обох половин, щоб колонки днів були однакові.
      Аркуш A — ширина альбомного A4 без полів, аркуш B — ще мінус 15 мм на склеювання */
   const unit = Math.min((297 - 2 * PAGE_MX) / sumA, (297 - 2 * PAGE_MX - 15) / sumB);
-  const rh2 = fitRows(nrows0, S.print.subPage ? 0 : 50), fs2 = Math.min(10, rh2 * 2.2);
+  const rh2 = Math.min(6.5, fitRows(nrows0, S.print.subPage ? 0 : 50) * K), fs2 = Math.min(10, rh2 * 2.2);
   const half = Object.entries(W).map(([k, v]) => `--w-${k}:${(v * unit).toFixed(2)}mm`).join(';') + `;--tw-a:${(sumA * unit).toFixed(1)}mm;--tw-b:${(sumB * unit).toFixed(1)}mm;--rh:${rh2.toFixed(2)}mm;${fonts(fs2, nameFont(rh2, W.cname * unit), postFont(rh2, W.cpost * unit, true))};--rot:18mm`;
-  return { full, half };
+  return { full, half, info: { rh: S.print.orientation === 'split' ? rh2 : rh, fs: S.print.orientation === 'split' ? fs2 : fs } };
 }
 /* HTML аркуша: half = null — уся таблиця, 'a' / 'b' — ліва / права половина для друку на 2 аркуші */
 function sheetPart(M, half) {
@@ -2482,6 +2488,7 @@ const ACT = {
   },
   wizClear: () => { WIZ.rows.forEach(r => r.items = []); keepScroll(render); },
   sideToggle: () => { const m = document.body.dataset.side === 'mini' ? '' : 'mini'; document.body.dataset.side = m; try { localStorage.setItem(LS + ':side', m); } catch (e) {} applyZoom(); },
+  pscale: el => { const d = +el.dataset.d; S.print.scale = d ? Math.max(0.7, Math.min(1.8, Math.round(((S.print.scale || 1) + d * 0.05) * 100) / 100)) : 1; save(); keepScroll(render); },
   zoomIn: () => setZoom(Math.min(2.5, Math.round((zoomValue() + 0.1) * 10) / 10)),
   zoomOut: () => setZoom(Math.max(0.2, Math.round((zoomValue() - 0.1) * 10) / 10)),
   zoom100: () => setZoom(1),
