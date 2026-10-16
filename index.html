@@ -416,8 +416,7 @@ body[data-side="mini"] .side-toggle svg{transform:rotate(180deg)}
   .sheet td.n{font-size:var(--fh,4.6pt)}
   .sheet td.name{font-size:var(--fn,5.4pt);text-align:left;padding-left:.5mm;white-space:nowrap}
   .sheet td.post{font-size:var(--fc,var(--fp,4.6pt));font-weight:700;text-align:left;padding-left:.4mm;white-space:nowrap}
-  .sheet td.post.extra{font-weight:400}
-  .sheet td.sublbl{font-size:var(--fc,var(--fl,var(--fp,4.6pt)));white-space:nowrap}
+  .sheet td.sublbl{font-size:var(--fc,var(--fl,var(--fp,4.6pt)));font-weight:700;white-space:nowrap}
   .sheet td.rate,.sheet td.t,.sheet td.sticky2,.sheet td.s.sf{border:0.2mm solid #000}
   .sheet td.d.z,.sheet td.s.z{color:#000;font-weight:700}
   .sheet td.s.last{font-size:var(--fs,5.6pt)}
@@ -432,6 +431,8 @@ body[data-side="mini"] .side-toggle svg{transform:rotate(180deg)}
   /* блок замін із підписами — з нової сторінки, щоб підписи не лишались самі */
   body[data-subpage="1"] .sheet tr.band{break-before:page;page-break-before:always}
   body[data-subpage="1"] .sheet-foot{margin-top:6mm}
+  body[data-subpage="1"] .sheet-foot .sig{font-size:calc(var(--fs,5.6pt) * 1.7)}
+  body[data-subpage="1"] .sheet-foot td{font-size:calc(var(--fs,5.6pt) * 1.25);padding:.4mm 1mm}
   .sheet .empty-col{color:#000}
   .sheet-foot{max-width:none;width:100%;margin-top:9mm;font-size:var(--fs,5.6pt);gap:1mm 6mm;break-inside:avoid}
   .sheet-foot .sig{font-size:calc(var(--fs,5.6pt) * 1.25);margin-bottom:6mm}
@@ -479,7 +480,7 @@ const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10;
 
 /* окремі ключі — не перетинаються з іншими програмами школи */
 const LS = 'shkola-tabel-v1';
-const VERSION = '1.23 · 16.10.2026';
+const VERSION = '1.24 · 16.10.2026';
 
 const MONTHS = ['січень', 'лютий', 'березень', 'квітень', 'травень', 'червень', 'липень', 'серпень', 'вересень', 'жовтень', 'листопад', 'грудень'];
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
@@ -1504,7 +1505,7 @@ function sheetVars(M) {
   const prRows = found ? M.rows.filter(r => found.has(r.emp.id)) : M.rows, subRows = M.subRows;
   const names = [...prRows.map(r => r.emp.name), ...subRows.map(r => r.name)], posts = prRows.map(r => r.pos.title), labels = subRows.map(r => r.label ? `( ${r.label} )` : '');
   /* шрифт прізвищ/посад: вміщається в колонку (ширина у мм) і в рядок (не вище 2,3 висоти рядка) */
-  const textFonts = (fs, rhMm, nameMm, postMm) => { const hCap = rhMm * 2.3; return [fitPt(names, true, nameMm, Math.min(10, hCap)), fitPt(posts, false, postMm, Math.min(9, hCap)), fitPt(labels, false, postMm, Math.min(9, hCap))]; };
+  const textFonts = (fs, rhMm, nameMm, postMm) => { const hCap = rhMm * 2.3; return [fitPt(names, true, nameMm, Math.min(10, hCap)), fitPt(posts, true, postMm, Math.min(10, hCap)), fitPt(labels, true, postMm, Math.min(10, hCap))]; };
   const fitOf = (rhMm, postMm) => ({ postMm, cap: Math.min(10, rhMm * 2.4) });   // для кегля посади на клітинку
   /* місце під рядки на сторінці: перша (заголовок + шапка) ≈160 мм, наступні (лише шапка) ≈172 мм;
      сторінок — найменше, за якого рядки по 2,6 мм ще вміщаються, далі рядок росте до 4,6 мм (запас 3 %) */
@@ -1562,7 +1563,7 @@ function sheetPart(M, half, fit) {
     const rs = r.span > 1 ? ` rowspan="${r.span}"` : '';
     body += `<tr data-e="${r.emp.id}"${r.emp.order % 2 ? '' : ' class="alt"'}>` +
       (A ? (r.first ? `<td class="n sticky1"${rs} data-act="orderOpen" data-id="${r.emp.id}" title="Натисніть, щоб змінити порядок рядків у табелі">${r.num}</td><td class="name l sticky2"${rs} data-act="pinRow" data-id="${r.emp.id}" title="Натисніть, щоб закріпити підсвічення рядка">${esc(r.emp.name)}</td>` : '') +
-        (r.first || !r.sameTitle ? `<td class="post l${r.first ? '' : ' extra'}"${r.sameTitle ? rs : ''}${pc(r.pos.title, r.first)}>${esc(r.pos.title)}</td>` : '') + `<td class="rate">${r.rate != null ? fmt(r.rate) : ''}</td>` : '') +
+        (r.first || !r.sameTitle ? `<td class="post l${r.first ? '' : ' extra'}"${r.sameTitle ? rs : ''}${pc(r.pos.title, true)}>${esc(r.pos.title)}</td>` : '') + `<td class="rate">${r.rate != null ? fmt(r.rate) : ''}</td>` : '') +
       fixT(dayCells(r.cells, r.pos.id, 'cell'), r.tot) + totCells(r.tot) + '</tr>';
   }
   const sumRow = (label, tot, cls) => `<tr class="${cls}">${A ? `<td class="sticky1"></td><td class="l sticky2">${label}</td><td></td><td></td>${Array.from({ length: 15 }, (_, i) => `<td data-c="${i}"></td>`).join('')}<td class="t">${fmt(tot.h1)}</td>` : ''}${B ? Array.from({ length: 16 }, (_, i) => `<td data-c="${i + 15}"></td>`).join('') + totCells(tot) : ''}</tr>`;
@@ -1571,7 +1572,7 @@ function sheetPart(M, half, fit) {
   body += `<tr class="band"><td colspan="${ncols}">Заміна</td></tr>`;
   for (const r of M.subRows) {
     if (found && !hit('tabel', r.name, r.label)) continue;
-    body += `<tr data-e="s${r.sub.id}">${A ? `<td class="sticky1"></td><td class="name l sticky2">${esc(r.name)}</td><td class="sublbl"${pc(r.label ? '( ' + r.label + ' )' : '')}>${r.label ? '( ' + esc(r.label) + ' )' : ''}</td><td></td>` : ''}` + fixT(dayCells(r.cells, r.sub.id, 'sub'), r.tot) + totCells(r.tot) + '</tr>';
+    body += `<tr data-e="s${r.sub.id}">${A ? `<td class="sticky1"></td><td class="name l sticky2">${esc(r.name)}</td><td class="sublbl"${pc(r.label ? '( ' + r.label + ' )' : '', true)}>${r.label ? '( ' + esc(r.label) + ' )' : ''}</td><td></td>` : ''}` + fixT(dayCells(r.cells, r.sub.id, 'sub'), r.tot) + totCells(r.tot) + '</tr>';
   }
   if (!M.subRows.length) body += `<tr>${A ? `<td class="sticky1"></td><td class="name l sticky2 muted" style="font-weight:400">— замін немає —</td><td></td><td></td>${'<td></td>'.repeat(16)}` : ''}${B ? '<td></td>'.repeat(16) + totCells({ days: 0, sum: 0, h1: 0, c: {} }) : ''}</tr>`;
   body += sumRow('Разом', M.subTotal, 'razom');
